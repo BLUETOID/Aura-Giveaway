@@ -35,8 +35,5 @@
       "size": "eco"
     }
   },
-  "addons": [],
-  "scripts": {
-    "postdeploy": "node scripts/deploy-commands.js"
-  }
+  "addons": []
 }

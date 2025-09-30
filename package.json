@@ -8,9 +8,8 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "deploy-commands": "node scripts/deploy-commands.js",
-    "check": "node --check src/index.js",
-    "heroku-postbuild": "node scripts/deploy-commands.js"
+    "deploy-commands": "node scripts/deploy-commands.js", 
+    "check": "node --check src/index.js"
   },
   "keywords": [
     "discord",
