@@ -13,7 +13,12 @@ yarn-error.log*
 
 # Data files (contain sensitive giveaway data)
 data/
-*.json
+data/*.json
+
+# Allow important config files
+!package.json
+!package-lock.json
+!app.json
 
 # Logs
 logs/

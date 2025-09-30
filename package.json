@@ -1,0 +1,31 @@
+{
+  "name": "aura-hgiveaway",
+  "version": "1.0.0",
+  "description": "Aura Discord Giveaway Bot - Feature-rich giveaway management with reaction-based entry system and admin controls.",
+  "main": "src/index.js",
+  "engines": {
+    "node": "18.x"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy-commands": "node scripts/deploy-commands.js",
+    "check": "node --check src/index.js",
+    "heroku-postbuild": "node scripts/deploy-commands.js"
+  },
+  "keywords": [
+    "discord",
+    "giveaway",
+    "bot",
+    "heroku",
+    "reactions"
+  ],
+  "author": "Gaming Aura",
+  "license": "MIT",
+  "dependencies": {
+    "@discordjs/rest": "^2.3.0",
+    "discord-api-types": "^0.37.83",
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5",
+    "ms": "^2.1.3"
+  }
+}

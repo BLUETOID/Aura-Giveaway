@@ -1,0 +1,42 @@
+{
+  "name": "Aura Giveaway Bot",
+  "description": "Feature-rich Discord giveaway bot with reaction-based entry system and admin controls",
+  "repository": "https://github.com/BLUETOID/Aura-Giveaway",
+  "logo": "https://discord.com/assets/f9bb9c4af2b9c32a2c5ee0014661546d.png",
+  "keywords": ["discord", "bot", "giveaway", "reactions", "nodejs"],
+  "stack": "heroku-22",
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "env": {
+    "DISCORD_TOKEN": {
+      "description": "Discord bot token from Developer Portal",
+      "required": true
+    },
+    "DISCORD_CLIENT_ID": {
+      "description": "Discord bot client/application ID",
+      "required": true
+    },
+    "DISCORD_GUILD_ID": {
+      "description": "Discord server ID for faster command deployment (optional)",
+      "required": false
+    },
+    "COMMAND_PREFIX": {
+      "description": "Bot command prefix",
+      "value": "!",
+      "required": false
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "eco"
+    }
+  },
+  "addons": [],
+  "scripts": {
+    "postdeploy": "node scripts/deploy-commands.js"
+  }
+}
