@@ -37,7 +37,17 @@ class GiveawayManager {
   }
 
   ensureStorage() {
+    const dataDir = path.dirname(STORAGE_PATH);
+    
+    // Create data directory if it doesn't exist
+    if (!fs.existsSync(dataDir)) {
+      console.log(`📁 Creating data directory: ${dataDir}`);
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
+    // Create giveaways.json if it doesn't exist
     if (!fs.existsSync(STORAGE_PATH)) {
+      console.log(`📄 Creating giveaways.json: ${STORAGE_PATH}`);
       fs.writeFileSync(STORAGE_PATH, '[]', 'utf8');
     }
   }

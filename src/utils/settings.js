@@ -12,7 +12,17 @@ class SettingsManager {
   }
 
   ensureStorage() {
+    const dataDir = path.dirname(SETTINGS_PATH);
+    
+    // Create data directory if it doesn't exist
+    if (!fs.existsSync(dataDir)) {
+      console.log(`📁 Creating data directory: ${dataDir}`);
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
+    // Create settings.json if it doesn't exist
     if (!fs.existsSync(SETTINGS_PATH)) {
+      console.log(`📄 Creating settings.json: ${SETTINGS_PATH}`);
       fs.writeFileSync(SETTINGS_PATH, '{}', 'utf8');
     }
   }
