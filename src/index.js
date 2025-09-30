@@ -16,9 +16,18 @@ const defaultPrefix = process.env.COMMAND_PREFIX || '!';
 const token = process.env.DISCORD_TOKEN;
 
 if (!token) {
-  console.error('Missing DISCORD_TOKEN in environment variables. Add it to a .env file.');
+  console.error('❌ Missing DISCORD_TOKEN in environment variables.');
+  console.error('🔧 Make sure to set DISCORD_TOKEN in Heroku Config Vars');
   process.exit(1);
 }
+
+console.log('🚀 Starting Aura Giveaway Bot...');
+console.log('📋 Environment check:');
+console.log(`   - DISCORD_TOKEN: ${token ? '✅ Set' : '❌ Missing'}`);
+console.log(`   - DISCORD_CLIENT_ID: ${process.env.DISCORD_CLIENT_ID ? '✅ Set' : '❌ Missing'}`);
+console.log(`   - DISCORD_GUILD_ID: ${process.env.DISCORD_GUILD_ID ? '✅ Set' : '⚠️ Optional'}`);
+console.log(`   - COMMAND_PREFIX: ${process.env.COMMAND_PREFIX || '!'}`);
+console.log('🔗 Connecting to Discord...');
 
 const client = new Client({
   intents: [
@@ -67,7 +76,10 @@ loadPrefixCommands();
 loadSlashCommands();
 
 client.once(Events.ClientReady, (readyClient) => {
-  console.log(`Ready! Logged in as ${readyClient.user.tag}`);
+  console.log(`✅ Ready! Logged in as ${readyClient.user.tag}`);
+  console.log(`🤖 Bot ID: ${readyClient.user.id}`);
+  console.log(`🏠 Serving ${readyClient.guilds.cache.size} guilds`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   giveawayManager.init(readyClient);
 });
 
@@ -166,4 +178,12 @@ client.on('messageReactionRemove', async (reaction, user) => {
   await giveawayManager.handleReactionRemove(reaction, user);
 });
 
-client.login(token);
+client.login(token).catch(error => {
+  console.error('❌ Failed to login to Discord:');
+  console.error(error);
+  console.error('🔧 Possible solutions:');
+  console.error('   1. Check if DISCORD_TOKEN is correct');
+  console.error('   2. Regenerate token in Discord Developer Portal');
+  console.error('   3. Make sure bot is not already running elsewhere');
+  process.exit(1);
+});
