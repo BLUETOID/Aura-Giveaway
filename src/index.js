@@ -22,10 +22,14 @@ if (!token) {
 }
 
 console.log('🚀 Starting Aura Giveaway Bot...');
-console.log('📋 Environment check:');
-console.log(`   - DISCORD_TOKEN: ${token ? '✅ Set' : '❌ Missing'}`);
-console.log(`   - DISCORD_CLIENT_ID: ${process.env.DISCORD_CLIENT_ID ? '✅ Set' : '❌ Missing'}`);
-console.log(`   - DISCORD_GUILD_ID: ${process.env.DISCORD_GUILD_ID ? '✅ Set' : '⚠️ Optional'}`);
+console.log(`📍 Platform: ${process.platform}`);
+console.log(`📍 Node Version: ${process.version}`);
+console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`� Process ID: ${process.pid}`);
+console.log('�📋 Environment check:');
+console.log(`   - DISCORD_TOKEN: ${token ? '✅ Set (' + token.substring(0, 20) + '...)' : '❌ Missing'}`);
+console.log(`   - DISCORD_CLIENT_ID: ${process.env.DISCORD_CLIENT_ID || '❌ Missing'}`);
+console.log(`   - DISCORD_GUILD_ID: ${process.env.DISCORD_GUILD_ID || '❌ Missing'}`);
 console.log(`   - COMMAND_PREFIX: ${process.env.COMMAND_PREFIX || '!'}`);
 console.log('🔗 Connecting to Discord...');
 
@@ -79,8 +83,18 @@ client.once(Events.ClientReady, (readyClient) => {
   console.log(`✅ Ready! Logged in as ${readyClient.user.tag}`);
   console.log(`🤖 Bot ID: ${readyClient.user.id}`);
   console.log(`🏠 Serving ${readyClient.guilds.cache.size} guilds`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌐 Gateway: ${readyClient.ws.gateway}`);
+  console.log(`📊 Latency: ${readyClient.ws.ping}ms`);
+  console.log(`💾 Memory Usage: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
+  
+  // List all guilds for debugging
+  console.log('📚 Guild list:');
+  readyClient.guilds.cache.forEach(guild => {
+    console.log(`   - ${guild.name} (ID: ${guild.id})`);
+  });
+  
   giveawayManager.init(readyClient);
+  console.log('🎉 Giveaway Manager initialized successfully!');
 });
 
 client.on(Events.MessageCreate, async (message) => {
@@ -178,12 +192,39 @@ client.on('messageReactionRemove', async (reaction, user) => {
   await giveawayManager.handleReactionRemove(reaction, user);
 });
 
+// Add additional event handlers for debugging
+client.on('error', error => {
+  console.error('❌ Discord Client Error:', error);
+});
+
+client.on('warn', warning => {
+  console.warn('⚠️ Discord Client Warning:', warning);
+});
+
+client.on('disconnect', () => {
+  console.log('🔌 Disconnected from Discord');
+});
+
+client.on('reconnecting', () => {
+  console.log('🔄 Reconnecting to Discord...');
+});
+
+// Enhanced login with better error handling
+console.log('🔑 Attempting to login...');
 client.login(token).catch(error => {
   console.error('❌ Failed to login to Discord:');
-  console.error(error);
+  console.error('Error details:', error);
+  console.error('Error code:', error.code);
+  console.error('Error message:', error.message);
   console.error('🔧 Possible solutions:');
   console.error('   1. Check if DISCORD_TOKEN is correct');
-  console.error('   2. Regenerate token in Discord Developer Portal');
+  console.error('   2. Regenerate token in Discord Developer Portal');  
   console.error('   3. Make sure bot is not already running elsewhere');
+  console.error('   4. Check if Discord is having outages');
   process.exit(1);
 });
+
+// Keep alive signal for Heroku
+setInterval(() => {
+  console.log(`💓 Heartbeat - Bot is alive! Guilds: ${client.guilds?.cache.size || 0}`);
+}, 300000); // Every 5 minutes
