@@ -193,29 +193,16 @@ class GiveawayManager {
       });
     }
 
-    // Admin buttons for managing entries
-    const checkEntriesButton = new ButtonBuilder()
-      .setCustomId(`check_entries_${giveawayId}`)
-      .setLabel('Check Entries')
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji('📋');
+    // Admin button for viewing participants
+    const participantsButton = new ButtonBuilder()
+      .setCustomId(`participants_${giveawayId}`)
+      .setLabel('Participants')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('👥');
 
-    const removeEntryButton = new ButtonBuilder()
-      .setCustomId(`remove_entry_${giveawayId}`)
-      .setLabel('Remove Entry')
-      .setStyle(ButtonStyle.Danger)
-      .setEmoji('❌');
-
-    const row = new ActionRowBuilder().addComponents(checkEntriesButton, removeEntryButton);
+    const row = new ActionRowBuilder().addComponents(participantsButton);
 
     const message = await channel.send({ embeds: [embed], components: [row] });
-
-    // Add initial tada emoji to the giveaway message
-    try {
-      await message.react('🎉');
-    } catch (error) {
-      console.log('Could not add initial reaction:', error.message);
-    }
 
     const giveaway = {
       id: giveawayId,
@@ -284,13 +271,12 @@ class GiveawayManager {
       giveaway.participants.push(user.id);
       this.saveGiveaways();
 
-      // Update embed footer with entry count
+      // Update embed footer with entry count (without emoji count)
       try {
         const embed = message.embeds[0];
         if (embed) {
-          const tadaCount = '🎉'.repeat(Math.min(giveaway.participants.length, 10));
           const updatedEmbed = new EmbedBuilder(embed.data)
-            .setFooter({ text: `Giveaway ID: ${giveaway.id} • ${giveaway.participants.length} entries ${tadaCount}` });
+            .setFooter({ text: `Giveaway ID: ${giveaway.id} • ${giveaway.participants.length} entries` });
           
           await message.edit({ embeds: [updatedEmbed], components: message.components });
         }
@@ -318,13 +304,12 @@ class GiveawayManager {
       giveaway.participants.splice(index, 1);
       this.saveGiveaways();
 
-      // Update embed footer with entry count
+      // Update embed footer with entry count (without emoji count)
       try {
         const embed = message.embeds[0];
         if (embed) {
-          const tadaCount = '🎉'.repeat(Math.min(giveaway.participants.length, 10));
           const updatedEmbed = new EmbedBuilder(embed.data)
-            .setFooter({ text: `Giveaway ID: ${giveaway.id} • ${giveaway.participants.length} entries ${tadaCount}` });
+            .setFooter({ text: `Giveaway ID: ${giveaway.id} • ${giveaway.participants.length} entries` });
           
           await message.edit({ embeds: [updatedEmbed], components: message.components });
         }
@@ -341,14 +326,15 @@ class GiveawayManager {
 
     const { customId, user, member } = interaction;
     
-    // Handle admin buttons
-    if (customId.startsWith('check_entries_')) {
-      await this.handleCheckEntries(interaction);
+    // Handle participants button
+    if (customId.startsWith('participants_')) {
+      await this.handleParticipants(interaction);
       return;
     }
     
-    if (customId.startsWith('remove_entry_')) {
-      await this.handleRemoveEntry(interaction);
+    // Handle individual remove buttons
+    if (customId.startsWith('remove_participant_')) {
+      await this.handleRemoveParticipant(interaction);
       return;
     }
 
@@ -396,9 +382,8 @@ class GiveawayManager {
     try {
       const embed = interaction.message.embeds[0];
       if (embed) {
-        const tadaCount = '🎉'.repeat(Math.min(giveaway.participants.length, 10)); // Limit to 10 emojis max
         const updatedEmbed = new EmbedBuilder(embed.data)
-          .setFooter({ text: `Giveaway ID: ${giveaway.id} • ${giveaway.participants.length} entries ${tadaCount}` });
+          .setFooter({ text: `Giveaway ID: ${giveaway.id} • ${giveaway.participants.length} entries` });
         
         await interaction.message.edit({ embeds: [updatedEmbed], components: interaction.message.components });
       }
@@ -409,8 +394,8 @@ class GiveawayManager {
     await interaction.reply({ content: 'You have successfully entered the giveaway! 🎉', ephemeral: true });
   }
 
-  async handleCheckEntries(interaction) {
-    const giveawayId = interaction.customId.replace('check_entries_', '');
+  async handleParticipants(interaction) {
+    const giveawayId = interaction.customId.replace('participants_', '');
     const giveaway = this.giveaways.get(giveawayId);
 
     if (!giveaway) {
@@ -423,7 +408,7 @@ class GiveawayManager {
     const hasPermission = await permissionManager.hasGiveawayPermission(interaction.member, interaction.guildId);
     
     if (!hasPermission) {
-      await interaction.reply({ content: 'You need permission to check giveaway entries.', ephemeral: true });
+      await interaction.reply({ content: 'You need permission to view giveaway participants.', ephemeral: true });
       return;
     }
 
@@ -432,26 +417,54 @@ class GiveawayManager {
       return;
     }
 
-    const header = `**Entries for ${giveaway.prize}** (ID: ${giveaway.id})\n${giveaway.participants.length} total entries:`;
-    const entries = giveaway.participants.map((id, index) => `${index + 1}. <@${id}>`);
+    // Create buttons for each participant (max 25 buttons across 5 rows)
+    const participantButtons = [];
+    const maxButtons = Math.min(giveaway.participants.length, 25);
     
-    // Split into chunks if too many entries
-    const chunkSize = 20;
-    const chunks = [];
-    for (let i = 0; i < entries.length; i += chunkSize) {
-      chunks.push(entries.slice(i, i + chunkSize).join('\n'));
+    for (let i = 0; i < maxButtons; i++) {
+      const userId = giveaway.participants[i];
+      try {
+        const user = await interaction.client.users.fetch(userId);
+        const button = new ButtonBuilder()
+          .setCustomId(`remove_participant_${giveawayId}_${userId}`)
+          .setLabel(user.username.substring(0, 80)) // Discord label limit
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('❌');
+        participantButtons.push(button);
+      } catch (error) {
+        console.log(`Could not fetch user ${userId}:`, error.message);
+      }
     }
 
-    const [first, ...rest] = chunks;
-    await interaction.reply({ content: `${header}\n${first}`, ephemeral: true });
+    // Split buttons into rows (5 buttons per row max)
+    const rows = [];
+    for (let i = 0; i < participantButtons.length; i += 5) {
+      const row = new ActionRowBuilder().addComponents(participantButtons.slice(i, i + 5));
+      rows.push(row);
+    }
+
+    const header = `**Participants for ${giveaway.prize}**\n${giveaway.participants.length} total entries\n\nClick on a participant to remove them:`;
     
-    for (const chunk of rest) {
-      await interaction.followUp({ content: chunk, ephemeral: true });
+    if (giveaway.participants.length > 25) {
+      await interaction.reply({ 
+        content: `${header}\n\n*Showing first 25 of ${giveaway.participants.length} participants*`, 
+        components: rows, 
+        ephemeral: true 
+      });
+    } else {
+      await interaction.reply({ 
+        content: header, 
+        components: rows, 
+        ephemeral: true 
+      });
     }
   }
 
-  async handleRemoveEntry(interaction) {
-    const giveawayId = interaction.customId.replace('remove_entry_', '');
+  async handleRemoveParticipant(interaction) {
+    const parts = interaction.customId.split('_');
+    const giveawayId = parts[2];
+    const userId = parts[3];
+    
     const giveaway = this.giveaways.get(giveawayId);
 
     if (!giveaway) {
@@ -468,79 +481,46 @@ class GiveawayManager {
       return;
     }
 
+    const userIndex = giveaway.participants.indexOf(userId);
+    if (userIndex === -1) {
+      await interaction.reply({ content: 'This user is not in the giveaway anymore.', ephemeral: true });
+      return;
+    }
+
+    // Remove from participants
+    giveaway.participants.splice(userIndex, 1);
+    this.saveGiveaways();
+
+    // Update the giveaway message
+    try {
+      const channel = await interaction.client.channels.fetch(giveaway.channelId);
+      const giveawayMessage = await channel.messages.fetch(giveaway.messageId);
+      
+      // Remove their reaction
+      const reaction = giveawayMessage.reactions.cache.find(r => r.emoji.name === '🎉');
+      if (reaction) {
+        await reaction.users.remove(userId);
+      }
+
+      // Update embed
+      const embed = giveawayMessage.embeds[0];
+      if (embed) {
+        const updatedEmbed = new EmbedBuilder(embed.data)
+          .setFooter({ text: `Giveaway ID: ${giveaway.id} • ${giveaway.participants.length} entries` });
+        
+        await giveawayMessage.edit({ embeds: [updatedEmbed], components: giveawayMessage.components });
+      }
+    } catch (error) {
+      console.log('Could not update giveaway message:', error.message);
+    }
+
+    const user = await interaction.client.users.fetch(userId).catch(() => null);
+    const userName = user ? user.username : 'User';
+    
     await interaction.reply({ 
-      content: 'Please mention the user whose entry you want to remove:', 
+      content: `✅ Removed **${userName}** from the giveaway. Now ${giveaway.participants.length} entries total.`, 
       ephemeral: true 
     });
-
-    // Wait for the next message from this user
-    const filter = (msg) => msg.author.id === interaction.user.id;
-    
-    try {
-      const collected = await interaction.channel.awaitMessages({ 
-        filter, 
-        max: 1, 
-        time: 30000, 
-        errors: ['time'] 
-      });
-      
-      const message = collected.first();
-      const mentionedUser = message.mentions.users.first();
-      
-      if (!mentionedUser) {
-        await interaction.followUp({ content: 'No user mentioned. Operation cancelled.', ephemeral: true });
-        return;
-      }
-
-      const userIndex = giveaway.participants.indexOf(mentionedUser.id);
-      if (userIndex === -1) {
-        await interaction.followUp({ content: `${mentionedUser.tag} is not entered in this giveaway.`, ephemeral: true });
-        return;
-      }
-
-      // Remove from participants
-      giveaway.participants.splice(userIndex, 1);
-      this.saveGiveaways();
-
-      // Update the giveaway message
-      try {
-        const channel = await interaction.client.channels.fetch(giveaway.channelId);
-        const giveawayMessage = await channel.messages.fetch(giveaway.messageId);
-        
-        // Remove their reaction
-        const reaction = giveawayMessage.reactions.cache.find(r => r.emoji.name === '🎉');
-        if (reaction) {
-          await reaction.users.remove(mentionedUser.id);
-        }
-
-        // Update embed
-        const embed = giveawayMessage.embeds[0];
-        if (embed) {
-          const tadaCount = '🎉'.repeat(Math.min(giveaway.participants.length, 10));
-          const updatedEmbed = new EmbedBuilder(embed.data)
-            .setFooter({ text: `Giveaway ID: ${giveaway.id} • ${giveaway.participants.length} entries ${tadaCount}` });
-          
-          await giveawayMessage.edit({ embeds: [updatedEmbed], components: giveawayMessage.components });
-        }
-      } catch (error) {
-        console.log('Could not update giveaway message:', error.message);
-      }
-
-      await interaction.followUp({ 
-        content: `✅ Removed ${mentionedUser.tag} from the giveaway. They now have ${giveaway.participants.length} entries.`, 
-        ephemeral: true 
-      });
-
-      // Delete the user's message
-      try {
-        await message.delete();
-      } catch (error) {
-        console.log('Could not delete message:', error.message);
-      }
-
-    } catch (error) {
-      await interaction.followUp({ content: 'Timed out waiting for user mention. Operation cancelled.', ephemeral: true });
-    }
   }
 
   scheduleGiveaway(giveaway) {
