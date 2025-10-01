@@ -204,6 +204,13 @@ class GiveawayManager {
 
     const message = await channel.send({ embeds: [embed], components: [row] });
 
+    // Add initial tada emoji to the giveaway message so users know to react
+    try {
+      await message.react('🎉');
+    } catch (error) {
+      console.log('Could not add initial reaction:', error.message);
+    }
+
     const giveaway = {
       id: giveawayId,
       guildId,
