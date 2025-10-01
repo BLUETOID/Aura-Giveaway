@@ -43,14 +43,10 @@ module.exports = {
         },
         { 
           name: '⚡ Interaction Latency', 
-          value: `💬 ${interactionLatency}ms`, 
+          value: ` ${interactionLatency}ms`, 
           inline: true 
         },
-        {
-          name: '📊 Bot Status',
-          value: `✅ Online\n🏠 Serving ${client.guilds.cache.size} servers`,
-          inline: false
-        }
+        
       )
       .setFooter({ 
         text: `Requested by ${interaction.user.username}`,
