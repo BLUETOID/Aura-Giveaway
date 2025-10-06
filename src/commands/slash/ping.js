@@ -37,7 +37,7 @@ module.exports = {
       .setDescription(`Bot latency information`)
       .addFields(
         { 
-          name: '📡 API Latency', 
+          name: ' API Latency', 
           value: `${pingEmoji} ${apiLatency}ms (${pingQuality})`, 
           inline: true 
         },

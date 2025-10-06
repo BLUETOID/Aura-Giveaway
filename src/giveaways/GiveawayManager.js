@@ -113,6 +113,33 @@ class GiveawayManager {
     }
   }
 
+  cleanupOldGiveaways() {
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+    const now = Date.now();
+    let cleanedCount = 0;
+
+    // Find giveaways older than 7 days
+    for (const [id, giveaway] of this.giveaways.entries()) {
+      // Check if giveaway is ended or cancelled
+      if (giveaway.status === GIVEAWAY_STATUS.ENDED || giveaway.status === GIVEAWAY_STATUS.CANCELLED) {
+        const endTime = giveaway.endedAt || giveaway.cancelledAt || giveaway.createdAt;
+        const age = now - endTime;
+        
+        if (age > SEVEN_DAYS_MS) {
+          this.giveaways.delete(id);
+          cleanedCount++;
+        }
+      }
+    }
+
+    if (cleanedCount > 0) {
+      console.log(`🧹 Cleaned up ${cleanedCount} old giveaway(s) (older than 7 days)`);
+      this.saveGiveaways();
+    }
+
+    return cleanedCount;
+  }
+
   getGiveaway(giveawayId) {
     return this.giveaways.get(giveawayId) || null;
   }

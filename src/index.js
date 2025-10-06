@@ -95,6 +95,16 @@ client.once(Events.ClientReady, (readyClient) => {
   
   giveawayManager.init(readyClient);
   console.log('🎉 Giveaway Manager initialized successfully!');
+  
+  // Run initial cleanup of old giveaways
+  console.log('🧹 Running initial giveaway cleanup...');
+  giveawayManager.cleanupOldGiveaways();
+  
+  // Schedule daily cleanup (every 24 hours)
+  setInterval(() => {
+    console.log('🧹 Running scheduled giveaway cleanup...');
+    giveawayManager.cleanupOldGiveaways();
+  }, 24 * 60 * 60 * 1000); // 24 hours
 });
 
 client.on(Events.MessageCreate, async (message) => {
