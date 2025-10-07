@@ -1,4 +1,3 @@
-const { Octokit } = require('@octokit/rest');
 const fs = require('fs');
 const path = require('path');
 
@@ -30,6 +29,8 @@ class GitHubStorage {
       this.owner = owner;
       this.repo = repo;
 
+      // Dynamic import for ES Module
+      const { Octokit } = await import('@octokit/rest');
       this.octokit = new Octokit({ auth: token });
 
       // Test connection
