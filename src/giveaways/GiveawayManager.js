@@ -19,10 +19,11 @@ const GIVEAWAY_STATUS = {
 };
 
 class GiveawayManager {
-  constructor() {
+  constructor(githubStorage = null) {
     this.client = null;
     this.giveaways = new Map();
     this.timers = new Map();
+    this.githubStorage = githubStorage;
     this.ensureStorage();
     this.loadGiveaways();
   }
@@ -108,6 +109,13 @@ class GiveawayManager {
     try {
       const serialized = JSON.stringify([...this.giveaways.values()], null, 2);
       fs.writeFileSync(STORAGE_PATH, serialized, 'utf8');
+      
+      // Also save to GitHub if enabled
+      if (this.githubStorage && this.githubStorage.enabled) {
+        this.githubStorage.saveToGitHub([...this.giveaways.values()]).catch(error => {
+          console.error('Failed to save to GitHub (non-blocking):', error.message);
+        });
+      }
     } catch (error) {
       console.error('[GiveawayManager] Failed to save giveaways:', error);
     }

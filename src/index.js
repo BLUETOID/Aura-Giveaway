@@ -11,6 +11,7 @@ const {
 } = require('discord.js');
 const GiveawayManager = require('./giveaways/GiveawayManager');
 const SettingsManager = require('./utils/settings');
+const GitHubStorage = require('./utils/githubStorage');
 
 const defaultPrefix = process.env.COMMAND_PREFIX || '!';
 const token = process.env.DISCORD_TOKEN;
@@ -47,7 +48,11 @@ const client = new Client({
 client.prefixCommands = new Collection();
 client.slashCommands = new Collection();
 
-const giveawayManager = new GiveawayManager();
+// Initialize GitHub storage
+const githubStorage = new GitHubStorage();
+
+// Initialize managers
+const giveawayManager = new GiveawayManager(githubStorage);
 const settingsManager = new SettingsManager(defaultPrefix);
 
 function loadPrefixCommands() {
@@ -79,7 +84,7 @@ function loadSlashCommands() {
 loadPrefixCommands();
 loadSlashCommands();
 
-client.once(Events.ClientReady, (readyClient) => {
+client.once(Events.ClientReady, async (readyClient) => {
   console.log(`✅ Ready! Logged in as ${readyClient.user.tag}`);
   console.log(`🤖 Bot ID: ${readyClient.user.id}`);
   console.log(`🏠 Serving ${readyClient.guilds.cache.size} guilds`);
@@ -92,6 +97,18 @@ client.once(Events.ClientReady, (readyClient) => {
   readyClient.guilds.cache.forEach(guild => {
     console.log(`   - ${guild.name} (ID: ${guild.id})`);
   });
+  
+  // Initialize GitHub storage
+  console.log('🔄 Initializing GitHub storage...');
+  await githubStorage.init();
+  
+  // Load giveaways from GitHub if enabled
+  if (githubStorage.enabled) {
+    const data = await githubStorage.loadFromGitHub();
+    if (data && data.length > 0) {
+      console.log(`📥 Loaded ${data.length} giveaway(s) from GitHub`);
+    }
+  }
   
   giveawayManager.init(readyClient);
   console.log('🎉 Giveaway Manager initialized successfully!');
