@@ -80,7 +80,42 @@ function createHelpPages(prefix) {
     .setFooter({ text: `Page 1 of 3 • Current prefix: ${prefix}` })
     .setTimestamp());
 
-  // Page 2: Utility Commands
+  // Page 2: Statistics Commands
+  pages.push(new EmbedBuilder()
+    .setColor('#00FF00')
+    .setTitle('📊 Statistics Commands')
+    .setDescription('Track and analyze server activity')
+    .addFields(
+      { 
+        name: `\`${prefix}stats overview\``, 
+        value: 'Quick snapshot of today\'s server statistics', 
+        inline: false 
+      },
+      { 
+        name: `\`${prefix}stats daily\``, 
+        value: 'Detailed breakdown of daily activity', 
+        inline: false 
+      },
+      { 
+        name: `\`${prefix}stats weekly\``, 
+        value: 'Summary of the past 7 days with trends', 
+        inline: false 
+      },
+      { 
+        name: `\`${prefix}stats members\``, 
+        value: 'Member growth and retention statistics', 
+        inline: false 
+      },
+      { 
+        name: `\`${prefix}stats activity\``, 
+        value: 'Server engagement metrics and charts', 
+        inline: false 
+      }
+    )
+    .setFooter({ text: `Page 2 of 4 • Current prefix: ${prefix}` })
+    .setTimestamp());
+
+  // Page 3: Utility Commands
   pages.push(new EmbedBuilder()
     .setColor('#00D9FF')
     .setTitle('⚙️ Utility Commands')
@@ -110,14 +145,14 @@ function createHelpPages(prefix) {
     .addFields(
       { 
         name: '💡 Slash Commands Available', 
-        value: 'Use `/help` to see slash command versions with more features!\nSlash commands include `/mod` for moderation and more.', 
+        value: 'Use `/help` to see slash command versions with more features!\nSlash commands include `/mod` for moderation and `/stats` for statistics.', 
         inline: false 
       }
     )
-    .setFooter({ text: `Page 2 of 3 • Current prefix: ${prefix}` })
+    .setFooter({ text: `Page 3 of 4 • Current prefix: ${prefix}` })
     .setTimestamp());
 
-  // Page 3: Features & Tips
+  // Page 4: Features & Tips
   pages.push(new EmbedBuilder()
     .setColor('#FFD700')
     .setTitle('✨ Features & Tips')
@@ -139,13 +174,13 @@ function createHelpPages(prefix) {
         inline: false 
       },
       { 
-        name: '💾 Data Persistence', 
-        value: 'All giveaways are saved automatically\nOld giveaways (7+ days) are cleaned up', 
+        name: '� Statistics Tracking', 
+        value: 'Automatic tracking of joins, leaves, messages, voice\n30-day retention with daily resets at midnight UTC', 
         inline: false 
       },
       { 
-        name: '👥 Permissions', 
-        value: 'Most commands require **Manage Server** permission\nEnsure bot has proper permissions too', 
+        name: '� Data Persistence', 
+        value: 'All data stored on GitHub automatically\nGiveaways: 7 days, Statistics: 30 days', 
         inline: false 
       },
       { 
@@ -154,7 +189,7 @@ function createHelpPages(prefix) {
         inline: false 
       }
     )
-    .setFooter({ text: `Page 3 of 3 • Current prefix: ${prefix}` })
+    .setFooter({ text: `Page 4 of 4 • Current prefix: ${prefix}` })
     .setTimestamp());
 
   return pages;

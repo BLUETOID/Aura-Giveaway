@@ -119,7 +119,42 @@ function createHelpPages(guildId) {
     .setFooter({ text: 'Page 2 of 4 • Requires appropriate permissions' })
     .setTimestamp());
 
-  // Page 3: Utility Commands
+  // Page 3: Statistics Commands
+  pages.push(new EmbedBuilder()
+    .setColor('#00FF00')
+    .setTitle('📊 Statistics Commands')
+    .setDescription('Track and analyze server activity')
+    .addFields(
+      { 
+        name: '`/stats overview`', 
+        value: 'Quick snapshot of today\'s server statistics\nShows members, joins, leaves, messages, voice, and more', 
+        inline: false 
+      },
+      { 
+        name: '`/stats daily`', 
+        value: 'Detailed breakdown of daily activity\nIncludes progress bars and hourly averages', 
+        inline: false 
+      },
+      { 
+        name: '`/stats weekly`', 
+        value: 'Summary of the past 7 days\nShows trends and mini charts for all metrics', 
+        inline: false 
+      },
+      { 
+        name: '`/stats members`', 
+        value: 'Member growth and retention statistics\nDay-by-day breakdown with growth rate analysis', 
+        inline: false 
+      },
+      { 
+        name: '`/stats activity`', 
+        value: 'Server engagement metrics\nMessage activity, voice usage, role changes, and online peaks', 
+        inline: false 
+      }
+    )
+    .setFooter({ text: 'Page 3 of 5 • Statistics update in real-time' })
+    .setTimestamp());
+
+  // Page 4: Utility Commands
   pages.push(new EmbedBuilder()
     .setColor('#00D9FF')
     .setTitle('⚙️ Utility Commands')
@@ -146,10 +181,10 @@ function createHelpPages(guildId) {
         inline: false 
       }
     )
-    .setFooter({ text: 'Page 3 of 4 • Use buttons below to navigate' })
+    .setFooter({ text: 'Page 4 of 5 • Use buttons below to navigate' })
     .setTimestamp());
 
-  // Page 4: Features & Tips
+  // Page 5: Features & Tips
   pages.push(new EmbedBuilder()
     .setColor('#FFD700')
     .setTitle('✨ Features & Tips')
@@ -171,22 +206,22 @@ function createHelpPages(guildId) {
         inline: false 
       },
       { 
-        name: '💾 Data Persistence', 
-        value: 'All giveaways are stored securely\nOld giveaways (7+ days) are automatically cleaned up', 
+        name: '� Statistics Tracking', 
+        value: 'Automatic tracking of server metrics\n30-day data retention with daily resets at midnight UTC', 
         inline: false 
       },
       { 
-        name: '👥 Permissions', 
-        value: 'Giveaway commands require **Manage Server**\nModeration commands require **Moderate Members**', 
+        name: '� Data Persistence', 
+        value: 'All data stored securely on GitHub\nGiveaways cleaned up after 7 days, statistics after 30 days', 
         inline: false 
       },
       { 
-        name: '🔧 Support', 
-        value: 'Having issues? Check bot permissions\nEnsure bot has: Manage Messages, Add Reactions, Moderate Members', 
+        name: '� Permissions', 
+        value: 'Giveaway/Stats: **Manage Server** • Moderation: **Moderate Members**\nEnsure bot has: Manage Messages, Add Reactions, Moderate Members', 
         inline: false 
       }
     )
-    .setFooter({ text: 'Page 4 of 4 • Thanks for using Aura Utility Bot!' })
+    .setFooter({ text: 'Page 5 of 5 • Thanks for using Aura Utility Bot!' })
     .setTimestamp());
 
   return pages;

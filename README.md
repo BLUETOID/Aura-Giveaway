@@ -14,6 +14,9 @@ A feature-rich Discord giveaway bot with reaction-based entry system and compreh
 - **📊 Real-time Updates**: Live entry count with visual emoji feedback
 - **⚡ Slash & Prefix Commands**: Complete command parity (`/giveaway` & `!giveaway`)
 - **🔒 Auto Role Checking**: Automatic enforcement of role requirements
+- **📈 Server Statistics**: Comprehensive tracking of joins, leaves, messages, voice activity, and more
+- **🛡️ Moderation Tools**: Full moderation suite with warn, kick, ban, timeout, and purge
+- **💾 GitHub Persistence**: All data automatically backed up to GitHub (no database needed)
 - **☁️ Heroku Ready**: One-click deployment with Procfile and auto-scaling
 
 ## 🚀 Quick Heroku Deployment
@@ -46,6 +49,9 @@ In your Heroku app dashboard → Settings → Config Vars, add:
 | `DISCORD_CLIENT_ID` | ✅ | Bot's client ID | `720259649500217366` |
 | `DISCORD_GUILD_ID` | ❌ | Server ID (faster command deployment) | `731751756224135309` |
 | `COMMAND_PREFIX` | ❌ | Prefix for text commands | `!` (default) |
+| `GITHUB_TOKEN` | ✅ | GitHub Personal Access Token | `ghp_xxxxxxxxxxxx` |
+| `GITHUB_REPO` | ✅ | GitHub repository (owner/repo) | `BLUETOID/Aura-Giveaway` |
+| `GITHUB_BRANCH` | ❌ | Branch for data storage | `main` (default) |
 
 #### Step 3: Deploy
 ```bash
@@ -93,11 +99,23 @@ You should see: `Ready! Logged in as YourBot#1234`
 | `/giveaway cancel identifier:<id> [reason:"Disqualified"]` | Cancel an active giveaway and notify the channel. |
 | `/giveaway reroll identifier:<id>` | Draw an additional winner from an ended giveaway (excludes previous winners). |
 | `/giveaway list [status:<active\|ended\|cancelled>]` | Show a filtered overview of active, ended, or cancelled giveaways. |
+| `/stats overview` | View today's server statistics snapshot (members, joins, leaves, messages, voice). |
+| `/stats daily` | Detailed breakdown of daily activity with progress bars. |
+| `/stats weekly` | 7-day summary with trends and charts. |
+| `/stats members` | Member growth and retention analytics. |
+| `/stats activity` | Server engagement metrics (messages, voice, roles, online peaks). |
+| `/mod warn user:<@user> [reason:"Spam"]` | Issue a warning to a member. |
+| `/mod kick user:<@user> [reason:"Breaking rules"]` | Kick a member from the server. |
+| `/mod ban user:<@user> [reason:"Severe violation"] [delete_days:<7>]` | Ban a member and optionally delete recent messages. |
+| `/mod timeout user:<@user> duration:<10m> [reason:"Cooldown"]` | Timeout a member for a specified duration. |
+| `/mod untimeout user:<@user>` | Remove timeout from a member. |
+| `/mod purge amount:<100> [user:@user]` | Delete multiple messages (optionally filtered by user). |
 | `/prefix show` | Display the current guild prefix. |
 | `/prefix set value:<?>` | Update the prefix (max five characters, per guild). |
-| `/help` | Brief list of all admin commands. |
+| `/ping` | Check bot latency and status. |
+| `/help` | Interactive paginated help menu with all commands. |
 
-All slash commands reply ephemerally and are restricted to members with **Manage Server** (or Administrator).
+All slash commands reply ephemerally and are restricted to members with appropriate permissions (**Manage Server** for giveaways/stats, **Moderate Members** for moderation).
 
 ### Prefix commands (default `!`)
 
@@ -108,9 +126,17 @@ All slash commands reply ephemerally and are restricted to members with **Manage
 | ``!giveaway cancel <giveawayId|messageLink> [reason]`` | Cancel an active giveaway. |
 | ``!giveaway reroll <giveawayId|messageLink>`` | Draw an additional winner. |
 | ``!giveaway list [active|ended|cancelled]`` | List giveaways (omit the argument to show all). |
+| ``!stats overview`` | View today's server statistics. |
+| ``!stats daily`` | Detailed daily activity breakdown. |
+| ``!stats weekly`` | 7-day summary with trends. |
+| ``!stats members`` | Member growth analytics. |
+| ``!stats activity`` | Server engagement metrics. |
 | ``!prefix show`` | Display the active prefix. |
 | ``!prefix set <newPrefix>`` | Change the prefix (persists to disk). |
+| ``!ping`` | Check bot latency. |
 | ``!help`` | Show all admin commands with examples. |
+
+**Note:** Moderation commands are only available via slash commands (`/mod`).
 
 ### Entrant experience
 
@@ -118,7 +144,18 @@ Participants click the **Enter Giveaway** button. The bot checks the configured 
 
 ## Data storage
 
-Giveaway metadata (active, ended, and cancelled) lives in `data/giveaways.json`. Do not delete this file while giveaways are running. You can back it up between deployments to preserve scheduled giveaways and reroll history. Per-guild settings (currently just the command prefix) are stored in `data/settings.json`.
+All data is automatically persisted to GitHub for reliability on Heroku's ephemeral filesystem:
+
+- **`giveaways.json`**: Active, ended, and cancelled giveaway metadata
+- **`statistics.json`**: Server statistics (30-day retention with daily tracking)
+- **`settings.json`**: Per-guild settings (command prefix)
+
+Data is automatically backed up to your GitHub repository specified in `GITHUB_REPO` environment variable. This ensures zero data loss even when Heroku restarts your dyno.
+
+### Automatic Cleanup
+- Giveaways: 7+ days after ending are automatically removed
+- Statistics: 30+ days of historical data are automatically purged
+- Data syncs to GitHub every time changes are made
 
 ## Extending
 

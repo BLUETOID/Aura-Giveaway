@@ -12,6 +12,7 @@ const {
 const GiveawayManager = require('./giveaways/GiveawayManager');
 const SettingsManager = require('./utils/settings');
 const GitHubStorage = require('./utils/githubStorage');
+const StatisticsManager = require('./utils/statistics');
 
 const defaultPrefix = process.env.COMMAND_PREFIX || '!';
 const token = process.env.DISCORD_TOKEN;
@@ -40,7 +41,9 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMessageReactions,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildPresences
   ],
   partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
@@ -54,6 +57,7 @@ const githubStorage = new GitHubStorage();
 // Initialize managers
 const giveawayManager = new GiveawayManager(githubStorage);
 const settingsManager = new SettingsManager(defaultPrefix);
+const statsManager = new StatisticsManager(githubStorage);
 
 function loadPrefixCommands() {
   const commandsPath = path.join(__dirname, 'commands', 'prefix');
@@ -113,6 +117,10 @@ client.once(Events.ClientReady, async (readyClient) => {
   giveawayManager.init(readyClient);
   console.log('🎉 Giveaway Manager initialized successfully!');
   
+  // Initialize statistics manager
+  await statsManager.init();
+  console.log('📊 Statistics Manager initialized successfully!');
+  
   // Run initial cleanup of old giveaways
   console.log('🧹 Running initial giveaway cleanup...');
   giveawayManager.cleanupOldGiveaways();
@@ -128,6 +136,9 @@ client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot || !message.guild) {
     return;
   }
+
+  // Track message statistics
+  statsManager.trackMessage(message.guildId);
 
   const guildPrefix = settingsManager.getPrefix(message.guildId);
 
@@ -152,7 +163,8 @@ client.on(Events.MessageCreate, async (message) => {
       client,
       manager: giveawayManager,
       prefix: guildPrefix,
-      settings: settingsManager
+      settings: settingsManager,
+      statsManager: statsManager
     });
   } catch (error) {
     console.error('Error executing prefix command:', error);
@@ -173,7 +185,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         client,
         manager: giveawayManager,
         settings: settingsManager,
-        prefix: settingsManager.getPrefix(interaction.guildId)
+        prefix: settingsManager.getPrefix(interaction.guildId),
+        statsManager: statsManager
       });
     } catch (error) {
       console.error('Error executing slash command:', error);
@@ -235,6 +248,53 @@ client.on('disconnect', () => {
 client.on('reconnecting', () => {
   console.log('🔄 Reconnecting to Discord...');
 });
+
+// Member join tracking
+client.on(Events.GuildMemberAdd, async (member) => {
+  statsManager.trackJoin(member.guild.id);
+  console.log(`📥 Member joined: ${member.user.tag} in ${member.guild.name}`);
+});
+
+// Member leave tracking
+client.on(Events.GuildMemberRemove, async (member) => {
+  statsManager.trackLeave(member.guild.id);
+  console.log(`📤 Member left: ${member.user.tag} from ${member.guild.name}`);
+});
+
+// Voice state tracking (join/leave/switch channels)
+client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
+  const guildId = newState.guild.id;
+  const userId = newState.member.id;
+
+  // User joined a voice channel
+  if (!oldState.channel && newState.channel) {
+    statsManager.trackVoiceJoin(guildId, userId);
+    console.log(`🎤 ${newState.member.user.tag} joined voice channel in ${newState.guild.name}`);
+  }
+  
+  // User left a voice channel
+  if (oldState.channel && !newState.channel) {
+    statsManager.trackVoiceLeave(guildId, userId);
+    console.log(`🔇 ${newState.member.user.tag} left voice channel in ${newState.guild.name}`);
+  }
+});
+
+// Role update tracking
+client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+  // Check if roles changed
+  if (oldMember.roles.cache.size !== newMember.roles.cache.size) {
+    statsManager.trackRoleChange(newMember.guild.id);
+    console.log(`🎭 Role changed for ${newMember.user.tag} in ${newMember.guild.name}`);
+  }
+});
+
+// Track max online count every 5 minutes
+setInterval(() => {
+  client.guilds.cache.forEach(guild => {
+    const onlineCount = guild.members.cache.filter(m => m.presence?.status !== 'offline').size;
+    statsManager.updateMaxOnline(guild.id, onlineCount);
+  });
+}, 5 * 60 * 1000); // Every 5 minutes
 
 // Enhanced login with better error handling
 console.log('🔑 Attempting to login...');
