@@ -118,7 +118,7 @@ client.once(Events.ClientReady, async (readyClient) => {
   console.log('🎉 Giveaway Manager initialized successfully!');
   
   // Initialize statistics manager
-  await statsManager.init();
+  statsManager.init(readyClient);
   console.log('📊 Statistics Manager initialized successfully!');
   
   // Run initial cleanup of old giveaways

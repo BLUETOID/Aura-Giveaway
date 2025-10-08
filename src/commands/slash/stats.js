@@ -1,4 +1,7 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
+const ChartGenerator = require('../../utils/charts');
+
+const chartGenerator = new ChartGenerator();
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -179,10 +182,61 @@ async function handleDaily(interaction, statsManager) {
         inline: true
       }
     )
-    .setFooter({ text: `${guild.name} • Data updates in real-time` })
+    .setFooter({ text: `${guild.name} • Data updates in real-time • Click button for chart view` })
     .setTimestamp();
 
-  await interaction.reply({ embeds: [embed] });
+  // Create button to view chart
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`stats_chart_daily_${interaction.user.id}`)
+        .setLabel('📊 View Chart')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+  const message = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
+
+  // Create collector for button
+  const collector = message.createMessageComponentCollector({ time: 300000 });
+
+  collector.on('collect', async i => {
+    if (i.user.id !== interaction.user.id) {
+      return i.reply({ content: 'This button is not for you!', ephemeral: true });
+    }
+
+    if (i.customId.startsWith('stats_chart_daily')) {
+      await i.deferReply({ ephemeral: true });
+
+      try {
+        const chartUrl = chartGenerator.generateDailyChart(todayStats);
+
+        const chartEmbed = new EmbedBuilder()
+          .setColor('#00D9FF')
+          .setTitle(`📊 Daily Activity Chart - ${todayStats.date}`)
+          .setDescription('Activity distribution for today')
+          .setImage(chartUrl)
+          .setFooter({ text: 'Note: Messages scaled down by 10x for better visualization' })
+          .setTimestamp();
+
+        await i.editReply({ embeds: [chartEmbed] });
+      } catch (error) {
+        console.error('Error generating chart:', error);
+        await i.editReply({ content: '❌ Failed to generate chart. Please try again later.' });
+      }
+    }
+  });
+
+  collector.on('end', () => {
+    const disabledRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('stats_chart_daily_disabled')
+          .setLabel('📊 View Chart')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(true)
+      );
+    message.edit({ components: [disabledRow] }).catch(() => {});
+  });
 }
 
 async function handleWeekly(interaction, statsManager) {
@@ -250,10 +304,71 @@ async function handleWeekly(interaction, statsManager) {
         inline: false
       }
     )
-    .setFooter({ text: 'Weekly statistics • Last 7 days' })
+    .setFooter({ text: 'Weekly statistics • Last 7 days • Click button for chart view' })
     .setTimestamp();
 
-  await interaction.reply({ embeds: [embed] });
+  // Create button to view chart
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`stats_chart_weekly_${interaction.user.id}`)
+        .setLabel('📊 View Chart')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+  const message = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
+
+  // Create collector for button
+  const collector = message.createMessageComponentCollector({ time: 300000 }); // 5 minutes
+
+  collector.on('collect', async i => {
+    if (i.user.id !== interaction.user.id) {
+      return i.reply({ content: 'This button is not for you!', ephemeral: true });
+    }
+
+    if (i.customId.startsWith('stats_chart_weekly')) {
+      await i.deferReply({ ephemeral: true });
+
+      try {
+        // Generate chart URL
+        const activityChartUrl = chartGenerator.generateActivityChart(weeklyData);
+        const memberChartUrl = chartGenerator.generateMemberGrowthChart(weeklyData);
+
+        const chartEmbed1 = new EmbedBuilder()
+          .setColor('#FFD700')
+          .setTitle('📊 Weekly Activity Chart')
+          .setDescription('Message and voice activity over the past 7 days')
+          .setImage(activityChartUrl)
+          .setFooter({ text: 'Data visualization • Last 7 days' })
+          .setTimestamp();
+
+        const chartEmbed2 = new EmbedBuilder()
+          .setColor('#FF6B6B')
+          .setTitle('👥 Member Growth Chart')
+          .setDescription('Joins vs leaves over the past 7 days')
+          .setImage(memberChartUrl)
+          .setFooter({ text: 'Member statistics • Last 7 days' })
+          .setTimestamp();
+
+        await i.editReply({ embeds: [chartEmbed1, chartEmbed2] });
+      } catch (error) {
+        console.error('Error generating chart:', error);
+        await i.editReply({ content: '❌ Failed to generate chart. Please try again later.' });
+      }
+    }
+  });
+
+  collector.on('end', () => {
+    const disabledRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`stats_chart_weekly_disabled`)
+          .setLabel('📊 View Chart')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(true)
+      );
+    message.edit({ components: [disabledRow] }).catch(() => {});
+  });
 }
 
 async function handleMembers(interaction, statsManager) {
