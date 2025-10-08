@@ -112,10 +112,6 @@ const statisticsSchema = new mongoose.Schema({
             },
             totalMinutes: { type: Number, default: 0 }
         },
-        roles: {
-            added: { type: Number, default: 0 },
-            removed: { type: Number, default: 0 }
-        },
         peakOnline: { type: Number, default: 0 }
     }],
     lastUpdated: {
@@ -150,7 +146,6 @@ statisticsSchema.methods.getTodayStats = function() {
             members: { joins: 0, leaves: 0, total: 0 },
             messages: { total: 0, byChannel: new Map(), byUser: new Map() },
             voice: { joins: 0, leaves: 0, activeUsers: new Map(), totalMinutes: 0 },
-            roles: { added: 0, removed: 0 },
             peakOnline: 0
         };
         this.dailyStats.push(todayStats);
@@ -175,7 +170,6 @@ statisticsSchema.methods.getLastNDaysStats = function(days = 7) {
             members: { joins: 0, leaves: 0, total: 0 },
             messages: { total: 0, byChannel: new Map(), byUser: new Map() },
             voice: { joins: 0, leaves: 0, activeUsers: new Map(), totalMinutes: 0 },
-            roles: { added: 0, removed: 0 },
             peakOnline: 0
         };
     });

@@ -93,11 +93,6 @@ async function handleOverview(message, statsManager) {
         inline: true
       },
       {
-        name: '🎭 Role Changes',
-        value: `**${todayStats.roleChanges}** today`,
-        inline: true
-      },
-      {
         name: '📈 All-Time Stats',
         value: `Total Joins: **${guildStats.totalStats.totalJoins.toLocaleString()}**\nTotal Messages: **${guildStats.totalStats.totalMessages.toLocaleString()}**`,
         inline: true
@@ -149,14 +144,6 @@ async function handleDaily(message, statsManager) {
         value: [
           `Total: **${voiceHours}** hours`,
           `Minutes: **${todayStats.voiceMinutes.toLocaleString()}**`
-        ].join('\n'),
-        inline: true
-      },
-      {
-        name: '🎭 Role Activity',
-        value: [
-          `Changes: **${todayStats.roleChanges}**`,
-          `Type: Assignments & Removals`
         ].join('\n'),
         inline: true
       }
@@ -314,7 +301,6 @@ async function handleActivity(message, statsManager) {
   
   const totalMessages = weeklyData.reduce((sum, day) => sum + day.messages, 0);
   const totalVoiceMinutes = weeklyData.reduce((sum, day) => sum + day.voiceMinutes, 0);
-  const totalRoleChanges = weeklyData.reduce((sum, day) => sum + day.roleChanges, 0);
   
   const mostActiveDay = weeklyData.reduce((max, day) => 
     day.messages > max.messages ? day : max, weeklyData[0]);
@@ -349,14 +335,6 @@ async function handleActivity(message, statsManager) {
         inline: false
       },
       {
-        name: '🎭 Role Activity (7 days)',
-        value: [
-          `Changes: **${totalRoleChanges}**`,
-          `Daily Avg: **${Math.round(totalRoleChanges / 7)}**`
-        ].join('\n'),
-        inline: true
-      },
-      {
         name: '🟢 Online Activity',
         value: [
           `Peak: **${Math.max(...weeklyData.map(d => d.maxOnline))}** members`,
@@ -368,8 +346,7 @@ async function handleActivity(message, statsManager) {
         name: '📊 All-Time Totals',
         value: [
           `Messages: **${guildStats.totalStats.totalMessages.toLocaleString()}**`,
-          `Voice: **${(guildStats.totalStats.totalVoiceMinutes / 60).toFixed(0)}** hours`,
-          `Roles: **${guildStats.totalStats.totalRoleChanges.toLocaleString()}** changes`
+          `Voice: **${(guildStats.totalStats.totalVoiceMinutes / 60).toFixed(0)}** hours`
         ].join('\n'),
         inline: false
       }

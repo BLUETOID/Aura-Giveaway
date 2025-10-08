@@ -277,15 +277,14 @@ class ChartGenerator {
    * @returns {String} Chart URL
    */
   generateDailyChart(todayStats) {
-    const labels = ['Joins', 'Leaves', 'Messages', 'Voice Hours', 'Role Changes'];
+    const labels = ['Joins', 'Leaves', 'Messages', 'Voice Hours'];
     const voiceHours = Math.round(todayStats.voiceMinutes / 60 * 10) / 10;
     
     const data = [
       todayStats.joins,
       todayStats.leaves,
       Math.round(todayStats.messages / 10), // Scale down messages for better visualization
-      voiceHours,
-      todayStats.roleChanges
+      voiceHours
     ];
 
     const config = {
@@ -299,15 +298,13 @@ class ChartGenerator {
             'rgba(75, 192, 75, 0.7)',
             'rgba(255, 99, 132, 0.7)',
             'rgba(54, 162, 235, 0.7)',
-            'rgba(192, 75, 192, 0.7)',
-            'rgba(255, 206, 86, 0.7)'
+            'rgba(192, 75, 192, 0.7)'
           ],
           borderColor: [
             'rgb(75, 192, 75)',
             'rgb(255, 99, 132)',
             'rgb(54, 162, 235)',
-            'rgb(192, 75, 192)',
-            'rgb(255, 206, 86)'
+            'rgb(192, 75, 192)'
           ],
           borderWidth: 2
         }]

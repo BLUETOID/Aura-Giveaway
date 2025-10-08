@@ -321,19 +321,6 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   }
 });
 
-// Role update tracking
-client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-  try {
-    // Check if roles changed
-    if (oldMember.roles.cache.size !== newMember.roles.cache.size) {
-      await statsManager.recordRoleChange(newMember.guild.id);
-      console.log(`🎭 Role changed for ${newMember.user.tag} in ${newMember.guild.name}`);
-    }
-  } catch (error) {
-    console.error('❌ Error tracking role change:', error.message);
-  }
-});
-
 // Enhanced login with better error handling
 console.log('🔑 Attempting to login...');
 client.login(token).catch(error => {

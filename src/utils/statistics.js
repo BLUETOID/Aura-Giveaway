@@ -137,21 +137,6 @@ class StatisticsManager {
     }
   }
 
-  async recordRoleChange(guildId) {
-    try {
-      const stats = await this.getGuildStats(guildId);
-      if (!stats) return;
-
-      const todayStats = stats.getTodayStats();
-      todayStats.roles.added++;
-      
-      stats.lastUpdated = new Date();
-      await stats.save();
-    } catch (error) {
-      console.error('❌ Error recording role change:', error.message);
-    }
-  }
-
   async updateMaxOnline(guildId, onlineCount) {
     try {
       const stats = await this.getGuildStats(guildId);
