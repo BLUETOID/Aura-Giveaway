@@ -11,8 +11,8 @@ const {
 } = require('discord.js');
 const GiveawayManager = require('./giveaways/GiveawayManager');
 const SettingsManager = require('./utils/settings');
-const GitHubStorage = require('./utils/githubStorage');
 const StatisticsManager = require('./utils/statistics');
+const mongodb = require('./database/mongodb');
 
 const defaultPrefix = process.env.COMMAND_PREFIX || '!';
 const token = process.env.DISCORD_TOKEN;
@@ -51,13 +51,10 @@ const client = new Client({
 client.prefixCommands = new Collection();
 client.slashCommands = new Collection();
 
-// Initialize GitHub storage
-const githubStorage = new GitHubStorage();
-
 // Initialize managers
-const giveawayManager = new GiveawayManager(githubStorage);
+const giveawayManager = new GiveawayManager();
 const settingsManager = new SettingsManager(defaultPrefix);
-const statsManager = new StatisticsManager(githubStorage);
+const statsManager = new StatisticsManager();
 
 function loadPrefixCommands() {
   const commandsPath = path.join(__dirname, 'commands', 'prefix');
@@ -102,34 +99,67 @@ client.once(Events.ClientReady, async (readyClient) => {
     console.log(`   - ${guild.name} (ID: ${guild.id})`);
   });
   
-  // Initialize GitHub storage
-  console.log('🔄 Initializing GitHub storage...');
-  await githubStorage.init();
+  // Connect to MongoDB
+  console.log('�️ Connecting to MongoDB Atlas...');
+  const connected = await mongodb.connect();
   
-  // Load giveaways from GitHub if enabled
-  if (githubStorage.enabled) {
-    const data = await githubStorage.loadFromGitHub();
-    if (data && data.length > 0) {
-      console.log(`📥 Loaded ${data.length} giveaway(s) from GitHub`);
+  if (!connected) {
+    console.error('❌ Failed to connect to MongoDB. Bot features may be limited.');
+    console.error('� Please set MONGODB_URI in Heroku Config Vars');
+  }
+  
+  // Initialize managers with MongoDB
+  await giveawayManager.init(readyClient);
+  console.log('🎉 Giveaway Manager initialized successfully!');
+  
+  await statsManager.init(readyClient);
+  console.log('📊 Statistics Manager initialized successfully!');
+  
+  // Initialize guild member counts for statistics
+  console.log('👥 Initializing guild member counts...');
+  for (const guild of readyClient.guilds.cache.values()) {
+    try {
+      await guild.members.fetch(); // Fetch all members to cache
+      const stats = await statsManager.getGuildStats(guild.id);
+      if (stats) {
+        const todayStats = stats.getTodayStats();
+        todayStats.members.total = guild.memberCount;
+        stats.lastUpdated = new Date();
+        await stats.save();
+        console.log(`   ✅ ${guild.name}: ${guild.memberCount} members`);
+      }
+    } catch (error) {
+      console.error(`   ❌ Failed to fetch members for ${guild.name}:`, error.message);
     }
   }
   
-  giveawayManager.init(readyClient);
-  console.log('🎉 Giveaway Manager initialized successfully!');
-  
-  // Initialize statistics manager
-  statsManager.init(readyClient);
-  console.log('📊 Statistics Manager initialized successfully!');
-  
-  // Run initial cleanup of old giveaways
-  console.log('🧹 Running initial giveaway cleanup...');
-  giveawayManager.cleanupOldGiveaways();
+  // Run initial cleanup of old giveaways and stats
+  console.log('🧹 Running initial cleanup...');
+  await giveawayManager.cleanupOldGiveaways();
+  await statsManager.cleanupOldStats();
   
   // Schedule daily cleanup (every 24 hours)
-  setInterval(() => {
-    console.log('🧹 Running scheduled giveaway cleanup...');
-    giveawayManager.cleanupOldGiveaways();
+  setInterval(async () => {
+    console.log('🧹 Running scheduled cleanup...');
+    await giveawayManager.cleanupOldGiveaways();
+    await statsManager.cleanupOldStats();
   }, 24 * 60 * 60 * 1000); // 24 hours
+  
+  // Track online members every 5 minutes
+  setInterval(async () => {
+    for (const guild of readyClient.guilds.cache.values()) {
+      try {
+        // Count members with non-offline status
+        const onlineCount = guild.members.cache.filter(m => 
+          m.presence?.status && m.presence.status !== 'offline'
+        ).size;
+        
+        await statsManager.updateMaxOnline(guild.id, onlineCount);
+      } catch (error) {
+        console.error(`❌ Error tracking online count for ${guild.name}:`, error.message);
+      }
+    }
+  }, 5 * 60 * 1000); // Every 5 minutes
 });
 
 client.on(Events.MessageCreate, async (message) => {
@@ -137,8 +167,8 @@ client.on(Events.MessageCreate, async (message) => {
     return;
   }
 
-  // Track message statistics
-  statsManager.recordMessage(message.guildId);
+  // Track message statistics with channel and user info
+  await statsManager.recordMessage(message.guildId, message.channelId, message.author.id);
 
   const guildPrefix = settingsManager.getPrefix(message.guildId);
 
@@ -251,50 +281,58 @@ client.on('reconnecting', () => {
 
 // Member join tracking
 client.on(Events.GuildMemberAdd, async (member) => {
-  statsManager.recordMemberJoin(member.guild.id);
-  console.log(`📥 Member joined: ${member.user.tag} in ${member.guild.name}`);
+  try {
+    await statsManager.recordMemberJoin(member.guild.id);
+    console.log(`📥 Member joined: ${member.user.tag} in ${member.guild.name} (Total: ${member.guild.memberCount})`);
+  } catch (error) {
+    console.error('❌ Error recording member join:', error.message);
+  }
 });
 
 // Member leave tracking
 client.on(Events.GuildMemberRemove, async (member) => {
-  statsManager.recordMemberLeave(member.guild.id);
-  console.log(`📤 Member left: ${member.user.tag} from ${member.guild.name}`);
+  try {
+    await statsManager.recordMemberLeave(member.guild.id);
+    console.log(`📤 Member left: ${member.user.tag} from ${member.guild.name} (Total: ${member.guild.memberCount})`);
+  } catch (error) {
+    console.error('❌ Error recording member leave:', error.message);
+  }
 });
 
 // Voice state tracking (join/leave/switch channels)
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
-  const guildId = newState.guild.id;
-  const userId = newState.member.id;
+  try {
+    const guildId = newState.guild.id;
+    const userId = newState.member.id;
 
-  // User joined a voice channel
-  if (!oldState.channel && newState.channel) {
-    statsManager.recordVoiceJoin(userId, guildId, newState.channel.id);
-    console.log(`🎤 ${newState.member.user.tag} joined voice channel in ${newState.guild.name}`);
-  }
-  
-  // User left a voice channel
-  if (oldState.channel && !newState.channel) {
-    statsManager.recordVoiceLeave(userId);
-    console.log(`🔇 ${newState.member.user.tag} left voice channel in ${newState.guild.name}`);
+    // User joined a voice channel
+    if (!oldState.channel && newState.channel) {
+      statsManager.recordVoiceJoin(userId, guildId, newState.channel.id);
+      console.log(`🎤 ${newState.member.user.tag} joined voice channel in ${newState.guild.name}`);
+    }
+    
+    // User left a voice channel
+    if (oldState.channel && !newState.channel) {
+      await statsManager.recordVoiceLeave(userId);
+      console.log(`🔇 ${newState.member.user.tag} left voice channel in ${newState.guild.name}`);
+    }
+  } catch (error) {
+    console.error('❌ Error tracking voice state:', error.message);
   }
 });
 
 // Role update tracking
 client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-  // Check if roles changed
-  if (oldMember.roles.cache.size !== newMember.roles.cache.size) {
-    statsManager.recordRoleChange(newMember.guild.id);
-    console.log(`🎭 Role changed for ${newMember.user.tag} in ${newMember.guild.name}`);
+  try {
+    // Check if roles changed
+    if (oldMember.roles.cache.size !== newMember.roles.cache.size) {
+      await statsManager.recordRoleChange(newMember.guild.id);
+      console.log(`🎭 Role changed for ${newMember.user.tag} in ${newMember.guild.name}`);
+    }
+  } catch (error) {
+    console.error('❌ Error tracking role change:', error.message);
   }
 });
-
-// Track max online count every 5 minutes
-setInterval(() => {
-  client.guilds.cache.forEach(guild => {
-    const onlineCount = guild.members.cache.filter(m => m.presence?.status !== 'offline').size;
-    statsManager.updateMaxOnline(guild.id, onlineCount);
-  });
-}, 5 * 60 * 1000); // Every 5 minutes
 
 // Enhanced login with better error handling
 console.log('🔑 Attempting to login...');

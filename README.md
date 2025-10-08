@@ -15,8 +15,9 @@ A feature-rich Discord giveaway bot with reaction-based entry system and compreh
 - **⚡ Slash & Prefix Commands**: Complete command parity (`/giveaway` & `!giveaway`)
 - **🔒 Auto Role Checking**: Automatic enforcement of role requirements
 - **📈 Server Statistics**: Comprehensive tracking of joins, leaves, messages, voice activity, and more
-- **🛡️ Moderation Tools**: Full moderation suite with warn, kick, ban, timeout, and purge
-- **💾 GitHub Persistence**: All data automatically backed up to GitHub (no database needed)
+- **� Chart Visualizations**: Beautiful interactive charts for statistics data
+- **�🛡️ Moderation Tools**: Full moderation suite with warn, kick, ban, timeout, and purge
+- **�️ MongoDB Storage**: Professional database with MongoDB Atlas (free tier included)
 - **☁️ Heroku Ready**: One-click deployment with Procfile and auto-scaling
 
 ## 🚀 Quick Heroku Deployment
@@ -49,9 +50,7 @@ In your Heroku app dashboard → Settings → Config Vars, add:
 | `DISCORD_CLIENT_ID` | ✅ | Bot's client ID | `720259649500217366` |
 | `DISCORD_GUILD_ID` | ❌ | Server ID (faster command deployment) | `731751756224135309` |
 | `COMMAND_PREFIX` | ❌ | Prefix for text commands | `!` (default) |
-| `GITHUB_TOKEN` | ✅ | GitHub Personal Access Token | `ghp_xxxxxxxxxxxx` |
-| `GITHUB_REPO` | ✅ | GitHub repository (owner/repo) | `BLUETOID/Aura-Giveaway` |
-| `GITHUB_BRANCH` | ❌ | Branch for data storage | `main` (default) |
+| `MONGODB_URI` | ✅ | MongoDB Atlas connection string | `mongodb+srv://user:pass@cluster...` |
 
 #### Step 3: Deploy
 ```bash

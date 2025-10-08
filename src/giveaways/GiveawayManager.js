@@ -1,5 +1,3 @@
-const fs = require('fs');
-const path = require('path');
 const { randomUUID } = require('crypto');
 const {
   ActionRowBuilder,
@@ -9,187 +7,113 @@ const {
   PermissionsBitField
 } = require('discord.js');
 const { formatDuration } = require('../utils/duration');
+const { Giveaway } = require('../database/schemas');
+const mongodb = require('../database/mongodb');
 
-const STORAGE_PATH = path.join(__dirname, '../../data/giveaways.json');
 const BUTTON_CUSTOM_ID_PREFIX = 'giveaway-enter-';
-const GIVEAWAY_STATUS = {
-  ACTIVE: 'active',
-  ENDED: 'ended',
-  CANCELLED: 'cancelled'
-};
 
 class GiveawayManager {
-  constructor(githubStorage = null) {
+  constructor() {
     this.client = null;
-    this.giveaways = new Map();
     this.timers = new Map();
-    this.githubStorage = githubStorage;
-    this.ensureStorage();
-    this.loadGiveaways();
   }
 
-  init(client) {
+  async init(client) {
     this.client = client;
-    for (const giveaway of this.giveaways.values()) {
-      if (giveaway.status === GIVEAWAY_STATUS.ACTIVE) {
+    
+    // Ensure MongoDB is connected
+    if (!mongodb.isDBConnected()) {
+      console.warn('⚠️ MongoDB not connected. Giveaway features may not work properly.');
+      return;
+    }
+
+    console.log('🎉 Loading active giveaways from database...');
+    
+    // Load all active giveaways and schedule them
+    try {
+      const activeGiveaways = await Giveaway.find({ ended: false });
+      console.log(`📋 Found ${activeGiveaways.length} active giveaway(s)`);
+      
+      for (const giveaway of activeGiveaways) {
         this.scheduleGiveaway(giveaway);
       }
+    } catch (error) {
+      console.error('❌ Error loading giveaways:', error.message);
     }
   }
 
-  ensureStorage() {
-    const dataDir = path.dirname(STORAGE_PATH);
-    
-    // Create data directory if it doesn't exist
-    if (!fs.existsSync(dataDir)) {
-      console.log(`📁 Creating data directory: ${dataDir}`);
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    
-    // Create giveaways.json if it doesn't exist
-    if (!fs.existsSync(STORAGE_PATH)) {
-      console.log(`📄 Creating giveaways.json: ${STORAGE_PATH}`);
-      fs.writeFileSync(STORAGE_PATH, '[]', 'utf8');
+  async cleanupOldGiveaways() {
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const cutoffDate = new Date(Date.now() - SEVEN_DAYS_MS);
+
+    try {
+      const result = await Giveaway.deleteMany({
+        ended: true,
+        endTime: { $lt: cutoffDate }
+      });
+
+      if (result.deletedCount > 0) {
+        console.log(`🧹 Cleaned up ${result.deletedCount} old giveaway(s) (older than 7 days)`);
+      }
+
+      return result.deletedCount;
+    } catch (error) {
+      console.error('❌ Error cleaning up old giveaways:', error.message);
+      return 0;
     }
   }
 
-  normalizeGiveaway(raw) {
-    if (!raw) {
+  async getGiveaway(giveawayId) {
+    try {
+      return await Giveaway.findOne({ messageId: giveawayId });
+    } catch (error) {
+      console.error('❌ Error fetching giveaway:', error.message);
       return null;
     }
-
-    const normalized = {
-      id: raw.id || randomUUID(),
-      guildId: raw.guildId,
-      channelId: raw.channelId,
-      messageId: raw.messageId,
-      prize: raw.prize,
-      hostId: raw.hostId,
-      createdAt: raw.createdAt || Date.now(),
-      endsAt: raw.endsAt,
-      requirements: raw.requirements || {},
-      participants: Array.isArray(raw.participants) ? raw.participants : [],
-      winnerIds: Array.isArray(raw.winnerIds) ? raw.winnerIds : [],
-      winnerCount: raw.winnerCount || 1,
-      status: Object.values(GIVEAWAY_STATUS).includes(raw.status) ? raw.status : GIVEAWAY_STATUS.ACTIVE,
-      endedAt: raw.endedAt || null,
-      endedBy: raw.endedBy || null,
-      cancelReason: raw.cancelReason || null,
-      cancelledAt: raw.cancelledAt || null,
-      cancelledBy: raw.cancelledBy || null,
-      lastRerolledAt: raw.lastRerolledAt || null,
-      lastRerolledBy: raw.lastRerolledBy || null
-    };
-
-    if (!normalized.endsAt) {
-      normalized.endsAt = Date.now() + 60_000;
-    }
-
-    return normalized;
   }
 
-  loadGiveaways() {
-    try {
-      const raw = fs.readFileSync(STORAGE_PATH, 'utf8');
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        for (const item of parsed) {
-          const giveaway = this.normalizeGiveaway(item);
-          if (giveaway) {
-            this.giveaways.set(giveaway.id, giveaway);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('[GiveawayManager] Failed to load giveaways:', error);
-    }
-  }
-
-  saveGiveaways() {
-    try {
-      const serialized = JSON.stringify([...this.giveaways.values()], null, 2);
-      fs.writeFileSync(STORAGE_PATH, serialized, 'utf8');
-      
-      // Also save to GitHub if enabled
-      if (this.githubStorage && this.githubStorage.enabled) {
-        this.githubStorage.saveToGitHub([...this.giveaways.values()]).catch(error => {
-          console.error('Failed to save to GitHub (non-blocking):', error.message);
-        });
-      }
-    } catch (error) {
-      console.error('[GiveawayManager] Failed to save giveaways:', error);
-    }
-  }
-
-  cleanupOldGiveaways() {
-    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-    const now = Date.now();
-    let cleanedCount = 0;
-
-    // Find giveaways older than 7 days
-    for (const [id, giveaway] of this.giveaways.entries()) {
-      // Check if giveaway is ended or cancelled
-      if (giveaway.status === GIVEAWAY_STATUS.ENDED || giveaway.status === GIVEAWAY_STATUS.CANCELLED) {
-        const endTime = giveaway.endedAt || giveaway.cancelledAt || giveaway.createdAt;
-        const age = now - endTime;
-        
-        if (age > SEVEN_DAYS_MS) {
-          this.giveaways.delete(id);
-          cleanedCount++;
-        }
-      }
-    }
-
-    if (cleanedCount > 0) {
-      console.log(`🧹 Cleaned up ${cleanedCount} old giveaway(s) (older than 7 days)`);
-      this.saveGiveaways();
-    }
-
-    return cleanedCount;
-  }
-
-  getGiveaway(giveawayId) {
-    return this.giveaways.get(giveawayId) || null;
-  }
-
-  resolveGiveaway(identifier) {
+  async resolveGiveaway(identifier) {
     if (!identifier) {
       return null;
     }
 
-    if (this.giveaways.has(identifier)) {
-      return this.giveaways.get(identifier);
-    }
+    try {
+      // Try to find by message ID
+      let giveaway = await Giveaway.findOne({ messageId: identifier });
+      if (giveaway) return giveaway;
 
-    const sanitized = identifier.replace(/[^0-9a-zA-Z-]/g, '');
-    if (sanitized && this.giveaways.has(sanitized)) {
-      return this.giveaways.get(sanitized);
-    }
-
-    const match = identifier.match(/\d{17,}/g);
-    const messageId = match ? match.pop() : null;
-    if (messageId) {
-      return this.findGiveawayByMessageId(messageId);
-    }
-
-    return null;
-  }
-
-  findGiveawayByMessageId(messageId) {
-    for (const giveaway of this.giveaways.values()) {
-      if (giveaway.messageId === messageId) {
-        return giveaway;
+      // Extract message ID from various formats (URL, mention, etc.)
+      const match = identifier.match(/\d{17,}/g);
+      const messageId = match ? match.pop() : null;
+      
+      if (messageId) {
+        giveaway = await Giveaway.findOne({ messageId });
+        if (giveaway) return giveaway;
       }
+
+      return null;
+    } catch (error) {
+      console.error('❌ Error resolving giveaway:', error.message);
+      return null;
     }
-    return null;
   }
 
-  getActiveGiveaways() {
-    return [...this.giveaways.values()].filter((giveaway) => giveaway.status === GIVEAWAY_STATUS.ACTIVE);
+  async getActiveGiveaways() {
+    try {
+      return await Giveaway.find({ ended: false }).sort({ endTime: 1 });
+    } catch (error) {
+      console.error('❌ Error fetching active giveaways:', error.message);
+      return [];
+    }
   }
 
-  getAllGiveaways() {
-    return [...this.giveaways.values()];
+  async getAllGiveaways() {
+    try {
+      return await Giveaway.find().sort({ createdAt: -1 }).limit(100);
+    } catch (error) {
+      console.error('❌ Error fetching all giveaways:', error.message);
+      return [];
+    }
   }
 
   async createGiveaway({ guildId, channelId, prize, durationMs, hostId, requirements = {}, winnerCount = 1 }) {
@@ -203,10 +127,7 @@ class GiveawayManager {
       throw new Error('Selected channel is not text-based.');
     }
 
-    const endsAt = Date.now() + durationMs;
-    const giveawayId = randomUUID();
-    const customId = `${BUTTON_CUSTOM_ID_PREFIX}${giveawayId}`;
-
+    const endTime = new Date(Date.now() + durationMs);
     const winnerText = winnerCount === 1 ? '1 Winner' : `${winnerCount} Winners`;
     
     const embed = new EmbedBuilder()
@@ -217,8 +138,8 @@ class GiveawayManager {
         { name: 'Winners', value: winnerText, inline: true },
         { name: 'Ends in', value: formatDuration(durationMs), inline: true }
       )
-      .setFooter({ text: `Giveaway ID: ${giveawayId} • 0 entries` })
-      .setTimestamp(new Date(endsAt))
+      .setFooter({ text: '0 entries' })
+      .setTimestamp(endTime)
       .setColor(0x5865f2);
 
     if (requirements.roleId) {
@@ -228,49 +149,32 @@ class GiveawayManager {
       });
     }
 
-    // Admin button for viewing participants
-    const participantsButton = new ButtonBuilder()
-      .setCustomId(`participants_${giveawayId}`)
-      .setLabel('Participants')
-      .setStyle(ButtonStyle.Primary)
-      .setEmoji('👥');
+    const message = await channel.send({ embeds: [embed] });
 
-    const row = new ActionRowBuilder().addComponents(participantsButton);
-
-    const message = await channel.send({ embeds: [embed], components: [row] });
-
-    // Add initial tada emoji to the giveaway message so users know to react
+    // Add initial tada emoji
     try {
       await message.react('🎉');
     } catch (error) {
       console.log('Could not add initial reaction:', error.message);
     }
 
-    const giveaway = {
-      id: giveawayId,
-      guildId,
-      channelId,
+    // Create giveaway in database
+    const giveaway = new Giveaway({
       messageId: message.id,
-      prize,
+      channelId,
+      guildId,
       hostId,
-      createdAt: Date.now(),
-      endsAt,
-      requirements,
-      participants: [],
-      winnerIds: [],
+      prize,
       winnerCount,
-      status: GIVEAWAY_STATUS.ACTIVE,
-      endedAt: null,
-      endedBy: null,
-      cancelReason: null,
-      cancelledAt: null,
-      cancelledBy: null,
-      lastRerolledAt: null,
-      lastRerolledBy: null
-    };
+      endTime,
+      entries: [],
+      ended: false,
+      winners: []
+    });
 
-    this.giveaways.set(giveawayId, giveaway);
-    this.saveGiveaways();
+    await giveaway.save();
+    console.log(`✅ Created giveaway: ${prize} (${giveaway.messageId})`);
+
     this.scheduleGiveaway(giveaway);
 
     return giveaway;
@@ -282,13 +186,13 @@ class GiveawayManager {
     }
 
     const message = reaction.message;
-    const giveaway = Array.from(this.giveaways.values()).find(g => g.messageId === message.id);
+    const giveaway = await Giveaway.findOne({ messageId: message.id });
     
-    if (!giveaway || giveaway.status !== GIVEAWAY_STATUS.ACTIVE) {
+    if (!giveaway || giveaway.ended) {
       return;
     }
 
-    if (Date.now() >= giveaway.endsAt) {
+    if (Date.now() >= giveaway.endTime) {
       return;
     }
 
@@ -297,30 +201,19 @@ class GiveawayManager {
       return;
     }
 
-    // Check role requirements
-    if (giveaway.requirements?.roleId && !member.roles.cache.has(giveaway.requirements.roleId)) {
-      // Remove the reaction if user doesn't meet requirements
-      try {
-        await reaction.users.remove(user.id);
-      } catch (error) {
-        console.log('Could not remove reaction:', error.message);
-      }
-      return;
-    }
+    // Add user to entries if not already there
+    if (!giveaway.entries.includes(user.id)) {
+      giveaway.entries.push(user.id);
+      await giveaway.save();
 
-    // Add user to participants if not already there
-    if (!giveaway.participants.includes(user.id)) {
-      giveaway.participants.push(user.id);
-      this.saveGiveaways();
-
-      // Update embed footer with entry count (without emoji count)
+      // Update embed footer with entry count
       try {
         const embed = message.embeds[0];
         if (embed) {
           const updatedEmbed = new EmbedBuilder(embed.data)
-            .setFooter({ text: `Giveaway ID: ${giveaway.id} • ${giveaway.participants.length} entries` });
+            .setFooter({ text: `${giveaway.entries.length} entries` });
           
-          await message.edit({ embeds: [updatedEmbed], components: message.components });
+          await message.edit({ embeds: [updatedEmbed] });
         }
       } catch (error) {
         console.log('Could not update embed:', error.message);
@@ -334,26 +227,26 @@ class GiveawayManager {
     }
 
     const message = reaction.message;
-    const giveaway = Array.from(this.giveaways.values()).find(g => g.messageId === message.id);
+    const giveaway = await Giveaway.findOne({ messageId: message.id });
     
-    if (!giveaway || giveaway.status !== GIVEAWAY_STATUS.ACTIVE) {
+    if (!giveaway || giveaway.ended) {
       return;
     }
 
-    // Remove user from participants
-    const index = giveaway.participants.indexOf(user.id);
+    // Remove user from entries
+    const index = giveaway.entries.indexOf(user.id);
     if (index > -1) {
-      giveaway.participants.splice(index, 1);
-      this.saveGiveaways();
+      giveaway.entries.splice(index, 1);
+      await giveaway.save();
 
-      // Update embed footer with entry count (without emoji count)
+      // Update embed footer with entry count
       try {
         const embed = message.embeds[0];
         if (embed) {
           const updatedEmbed = new EmbedBuilder(embed.data)
-            .setFooter({ text: `Giveaway ID: ${giveaway.id} • ${giveaway.participants.length} entries` });
+            .setFooter({ text: `${giveaway.entries.length} entries` });
           
-          await message.edit({ embeds: [updatedEmbed], components: message.components });
+          await message.edit({ embeds: [updatedEmbed] });
         }
       } catch (error) {
         console.log('Could not update embed:', error.message);
@@ -361,246 +254,42 @@ class GiveawayManager {
     }
   }
 
-  async handleButtonInteraction(interaction) {
-    if (!interaction.isButton()) {
-      return;
-    }
-
-    const { customId, user, member } = interaction;
-    
-    // Handle participants button
-    if (customId.startsWith('participants_')) {
-      await this.handleParticipants(interaction);
-      return;
-    }
-    
-    // Handle individual remove buttons
-    if (customId.startsWith('remove_participant_')) {
-      await this.handleRemoveParticipant(interaction);
-      return;
-    }
-
-    // Legacy button handling (for old giveaways)
-    if (!customId.startsWith(BUTTON_CUSTOM_ID_PREFIX)) {
-      return;
-    }
-
-    const giveawayId = customId.replace(BUTTON_CUSTOM_ID_PREFIX, '');
-    const giveaway = this.giveaways.get(giveawayId);
-    if (!giveaway) {
-      await interaction.reply({ content: 'This giveaway is no longer active.', ephemeral: true });
-      return;
-    }
-
-    if (giveaway.status !== GIVEAWAY_STATUS.ACTIVE) {
-      await interaction.reply({ content: 'This giveaway is no longer accepting entries.', ephemeral: true });
-      return;
-    }
-
-    if (Date.now() >= giveaway.endsAt) {
-      await interaction.reply({ content: 'This giveaway has already ended.', ephemeral: true });
-      return;
-    }
-
-    if (!member || !member.roles) {
-      await interaction.reply({ content: 'Unable to verify your eligibility right now.', ephemeral: true });
-      return;
-    }
-
-    if (giveaway.requirements?.roleId && !member.roles.cache.has(giveaway.requirements.roleId)) {
-      await interaction.reply({ content: 'You do not meet the role requirement for this giveaway.', ephemeral: true });
-      return;
-    }
-
-    if (giveaway.participants.includes(user.id)) {
-      await interaction.reply({ content: 'You are already entered in this giveaway!', ephemeral: true });
-      return;
-    }
-
-    giveaway.participants.push(user.id);
-    this.saveGiveaways();
-
-    // Update the embed footer with entry count (visual feedback)
-    try {
-      const embed = interaction.message.embeds[0];
-      if (embed) {
-        const updatedEmbed = new EmbedBuilder(embed.data)
-          .setFooter({ text: `Giveaway ID: ${giveaway.id} • ${giveaway.participants.length} entries` });
-        
-        await interaction.message.edit({ embeds: [updatedEmbed], components: interaction.message.components });
-      }
-    } catch (error) {
-      console.log('Could not update embed:', error.message);
-    }
-
-    await interaction.reply({ content: 'You have successfully entered the giveaway! 🎉', ephemeral: true });
-  }
-
-  async handleParticipants(interaction) {
-    const giveawayId = interaction.customId.replace('participants_', '');
-    const giveaway = this.giveaways.get(giveawayId);
-
-    if (!giveaway) {
-      await interaction.reply({ content: 'Giveaway not found.', ephemeral: true });
-      return;
-    }
-
-    // Check if user has permission
-    const permissionManager = new (require('../utils/permissions')).PermissionManager();
-    const hasPermission = await permissionManager.hasGiveawayPermission(interaction.member, interaction.guildId);
-    
-    if (!hasPermission) {
-      await interaction.reply({ content: 'You need permission to view giveaway participants.', ephemeral: true });
-      return;
-    }
-
-    if (!giveaway.participants.length) {
-      await interaction.reply({ content: `No one has entered giveaway **${giveaway.prize}** yet.`, ephemeral: true });
-      return;
-    }
-
-    // Create buttons for each participant (max 25 buttons across 5 rows)
-    const participantButtons = [];
-    const maxButtons = Math.min(giveaway.participants.length, 25);
-    
-    for (let i = 0; i < maxButtons; i++) {
-      const userId = giveaway.participants[i];
-      try {
-        const user = await interaction.client.users.fetch(userId);
-        const button = new ButtonBuilder()
-          .setCustomId(`remove_participant_${giveawayId}_${userId}`)
-          .setLabel(user.username.substring(0, 80)) // Discord label limit
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji('❌');
-        participantButtons.push(button);
-      } catch (error) {
-        console.log(`Could not fetch user ${userId}:`, error.message);
-      }
-    }
-
-    // Split buttons into rows (5 buttons per row max)
-    const rows = [];
-    for (let i = 0; i < participantButtons.length; i += 5) {
-      const row = new ActionRowBuilder().addComponents(participantButtons.slice(i, i + 5));
-      rows.push(row);
-    }
-
-    const header = `**Participants for ${giveaway.prize}**\n${giveaway.participants.length} total entries\n\nClick on a participant to remove them:`;
-    
-    if (giveaway.participants.length > 25) {
-      await interaction.reply({ 
-        content: `${header}\n\n*Showing first 25 of ${giveaway.participants.length} participants*`, 
-        components: rows, 
-        ephemeral: true 
-      });
-    } else {
-      await interaction.reply({ 
-        content: header, 
-        components: rows, 
-        ephemeral: true 
-      });
-    }
-  }
-
-  async handleRemoveParticipant(interaction) {
-    const parts = interaction.customId.split('_');
-    const giveawayId = parts[2];
-    const userId = parts[3];
-    
-    const giveaway = this.giveaways.get(giveawayId);
-
-    if (!giveaway) {
-      await interaction.reply({ content: 'Giveaway not found.', ephemeral: true });
-      return;
-    }
-
-    // Check if user has permission
-    const permissionManager = new (require('../utils/permissions')).PermissionManager();
-    const hasPermission = await permissionManager.hasGiveawayPermission(interaction.member, interaction.guildId);
-    
-    if (!hasPermission) {
-      await interaction.reply({ content: 'You need permission to manage giveaway entries.', ephemeral: true });
-      return;
-    }
-
-    const userIndex = giveaway.participants.indexOf(userId);
-    if (userIndex === -1) {
-      await interaction.reply({ content: 'This user is not in the giveaway anymore.', ephemeral: true });
-      return;
-    }
-
-    // Remove from participants
-    giveaway.participants.splice(userIndex, 1);
-    this.saveGiveaways();
-
-    // Update the giveaway message
-    try {
-      const channel = await interaction.client.channels.fetch(giveaway.channelId);
-      const giveawayMessage = await channel.messages.fetch(giveaway.messageId);
-      
-      // Remove their reaction
-      const reaction = giveawayMessage.reactions.cache.find(r => r.emoji.name === '🎉');
-      if (reaction) {
-        await reaction.users.remove(userId);
-      }
-
-      // Update embed
-      const embed = giveawayMessage.embeds[0];
-      if (embed) {
-        const updatedEmbed = new EmbedBuilder(embed.data)
-          .setFooter({ text: `Giveaway ID: ${giveaway.id} • ${giveaway.participants.length} entries` });
-        
-        await giveawayMessage.edit({ embeds: [updatedEmbed], components: giveawayMessage.components });
-      }
-    } catch (error) {
-      console.log('Could not update giveaway message:', error.message);
-    }
-
-    const user = await interaction.client.users.fetch(userId).catch(() => null);
-    const userName = user ? user.username : 'User';
-    
-    await interaction.reply({ 
-      content: `✅ Removed **${userName}** from the giveaway. Now ${giveaway.participants.length} entries total.`, 
-      ephemeral: true 
-    });
-  }
-
   scheduleGiveaway(giveaway) {
-    if (giveaway.status !== GIVEAWAY_STATUS.ACTIVE) {
+    if (giveaway.ended) {
       return;
     }
 
-    const delay = giveaway.endsAt - Date.now();
+    const delay = new Date(giveaway.endTime).getTime() - Date.now();
     if (delay <= 0) {
-      this.endGiveaway(giveaway.id).catch((error) => {
+      this.endGiveaway(giveaway.messageId).catch((error) => {
         console.error('[GiveawayManager] Failed to close overdue giveaway:', error);
       });
       return;
     }
 
-    this.clearTimer(giveaway.id);
+    this.clearTimer(giveaway.messageId);
 
     const maxDelay = 2 ** 31 - 1;
     if (delay > maxDelay) {
       const timer = setTimeout(() => this.scheduleGiveaway(giveaway), maxDelay);
-      this.timers.set(giveaway.id, timer);
+      this.timers.set(giveaway.messageId, timer);
       return;
     }
 
     const timer = setTimeout(() => {
-      this.endGiveaway(giveaway.id).catch((error) => {
+      this.endGiveaway(giveaway.messageId).catch((error) => {
         console.error('[GiveawayManager] Failed to end giveaway:', error);
       });
     }, delay);
 
-    this.timers.set(giveaway.id, timer);
+    this.timers.set(giveaway.messageId, timer);
   }
 
-  clearTimer(giveawayId) {
-    const existing = this.timers.get(giveawayId);
+  clearTimer(messageId) {
+    const existing = this.timers.get(messageId);
     if (existing) {
       clearTimeout(existing);
-      this.timers.delete(giveawayId);
+      this.timers.delete(messageId);
     }
   }
 
@@ -622,17 +311,7 @@ class GiveawayManager {
 
     return new EmbedBuilder()
       .setTitle(giveaway.prize)
-      .setFooter({ text: `Giveaway ID: ${giveaway.id}` });
-  }
-
-  buildDisabledRow(giveawayId, label) {
-    return new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${BUTTON_CUSTOM_ID_PREFIX}${giveawayId}-disabled`)
-        .setLabel(label)
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(true)
-    );
+      .setFooter({ text: `${giveaway.entries.length} entries` });
   }
 
   formatWinners(winnerIds) {
@@ -648,45 +327,44 @@ class GiveawayManager {
     return `🎉 Winners:\n${lines.join('\n')}`;
   }
 
-  async endGiveaway(giveawayId, { executorId = null } = {}) {
-    const giveaway = this.giveaways.get(giveawayId);
-    if (!giveaway || giveaway.status !== GIVEAWAY_STATUS.ACTIVE) {
+  async endGiveaway(messageId, { executorId = null } = {}) {
+    const giveaway = await Giveaway.findOne({ messageId });
+    if (!giveaway || giveaway.ended) {
       return null;
     }
 
-    this.clearTimer(giveawayId);
+    this.clearTimer(messageId);
 
     let winnerIds = [];
     try {
       const { channel, message } = await this.fetchMessageContext(giveaway);
       const baseEmbed = this.buildBaseEmbed(message, giveaway);
-      const disabledRow = this.buildDisabledRow(giveaway.id, 'Giveaway Ended');
 
-      if (giveaway.participants.length === 0) {
+      if (giveaway.entries.length === 0) {
         baseEmbed
           .setDescription('No valid entries were received.')
           .setColor(0x992d22)
-          .setTimestamp(new Date(giveaway.endsAt));
+          .setTimestamp(new Date(giveaway.endTime));
 
-        await message.edit({ embeds: [baseEmbed], components: [disabledRow] });
+        await message.edit({ embeds: [baseEmbed] });
         await channel.send(`No winner could be determined for **${giveaway.prize}**.`);
       } else {
         // Select multiple winners based on winnerCount
-        const availableParticipants = [...giveaway.participants];
-        const maxWinners = Math.min(giveaway.winnerCount || 1, availableParticipants.length);
+        const availableEntries = [...giveaway.entries];
+        const maxWinners = Math.min(giveaway.winnerCount, availableEntries.length);
         
         for (let i = 0; i < maxWinners; i++) {
-          const randomIndex = Math.floor(Math.random() * availableParticipants.length);
-          winnerIds.push(availableParticipants[randomIndex]);
-          availableParticipants.splice(randomIndex, 1); // Remove selected winner to avoid duplicates
+          const randomIndex = Math.floor(Math.random() * availableEntries.length);
+          winnerIds.push(availableEntries[randomIndex]);
+          availableEntries.splice(randomIndex, 1);
         }
 
         baseEmbed
           .setDescription(this.formatWinners(winnerIds))
           .setColor(0x2ecc71)
-          .setTimestamp(new Date(giveaway.endsAt));
+          .setTimestamp(new Date(giveaway.endTime));
 
-        await message.edit({ embeds: [baseEmbed], components: [disabledRow] });
+        await message.edit({ embeds: [baseEmbed] });
         
         const winnerMentions = winnerIds.map(id => `<@${id}>`).join(', ');
         const winnerText = winnerIds.length === 1 ? 'Congratulations' : 'Congratulations to our winners';
@@ -696,27 +374,25 @@ class GiveawayManager {
       console.error('[GiveawayManager] Error finalizing giveaway:', error);
     }
 
-    giveaway.status = GIVEAWAY_STATUS.ENDED;
-    giveaway.endedAt = Date.now();
-    giveaway.endedBy = executorId;
-    giveaway.winnerIds = winnerIds;
+    giveaway.ended = true;
+    giveaway.winners = winnerIds;
+    await giveaway.save();
 
-    this.giveaways.set(giveaway.id, giveaway);
-    this.saveGiveaways();
+    console.log(`✅ Ended giveaway: ${giveaway.prize} (${winnerIds.length} winner(s))`);
     return giveaway;
   }
 
   async cancelGiveaway(identifier, executorId, reason = null) {
-    const giveaway = this.resolveGiveaway(identifier);
+    const giveaway = await this.resolveGiveaway(identifier);
     if (!giveaway) {
       throw new Error('Giveaway not found.');
     }
 
-    if (giveaway.status !== GIVEAWAY_STATUS.ACTIVE) {
+    if (giveaway.ended) {
       throw new Error('Only active giveaways can be cancelled.');
     }
 
-    this.clearTimer(giveaway.id);
+    this.clearTimer(giveaway.messageId);
 
     try {
       const { channel, message } = await this.fetchMessageContext(giveaway);
@@ -725,63 +401,56 @@ class GiveawayManager {
         .setColor(0x992d22)
         .setTimestamp(new Date());
 
-      const disabledRow = this.buildDisabledRow(giveaway.id, 'Giveaway Cancelled');
-      await message.edit({ embeds: [baseEmbed], components: [disabledRow] });
+      await message.edit({ embeds: [baseEmbed] });
       await channel.send(`🚫 Giveaway **${giveaway.prize}** was cancelled by <@${executorId}>${reason ? `: ${reason}` : ''}.`);
     } catch (error) {
       console.error('[GiveawayManager] Error cancelling giveaway:', error);
     }
 
-    giveaway.status = GIVEAWAY_STATUS.CANCELLED;
-    giveaway.cancelledAt = Date.now();
-    giveaway.cancelledBy = executorId;
-    giveaway.cancelReason = reason;
+    giveaway.ended = true;
+    await giveaway.save();
 
-    this.giveaways.set(giveaway.id, giveaway);
-    this.saveGiveaways();
+    console.log(`🚫 Cancelled giveaway: ${giveaway.prize}`);
     return giveaway;
   }
 
   async rerollGiveaway(identifier, executorId) {
-    const giveaway = this.resolveGiveaway(identifier);
+    const giveaway = await this.resolveGiveaway(identifier);
     if (!giveaway) {
       throw new Error('Giveaway not found.');
     }
 
-    if (giveaway.status !== GIVEAWAY_STATUS.ENDED) {
+    if (!giveaway.ended) {
       throw new Error('Only ended giveaways can be rerolled.');
     }
 
-    if (!giveaway.participants.length) {
+    if (!giveaway.entries.length) {
       throw new Error('No participants were recorded for this giveaway.');
     }
 
-    const available = giveaway.participants.filter((id) => !giveaway.winnerIds.includes(id));
+    const available = giveaway.entries.filter((id) => !giveaway.winners.includes(id));
     if (available.length === 0) {
       throw new Error('All participants have already won. No additional rerolls possible.');
     }
 
     const winnerId = available[Math.floor(Math.random() * available.length)];
-    giveaway.winnerIds.push(winnerId);
-    giveaway.lastRerolledAt = Date.now();
-    giveaway.lastRerolledBy = executorId;
+    giveaway.winners.push(winnerId);
+    await giveaway.save();
 
     try {
       const { channel, message } = await this.fetchMessageContext(giveaway);
       const baseEmbed = this.buildBaseEmbed(message, giveaway)
-        .setDescription(this.formatWinners(giveaway.winnerIds))
+        .setDescription(this.formatWinners(giveaway.winners))
         .setColor(0x2ecc71)
-        .setTimestamp(new Date(giveaway.endedAt || Date.now()));
+        .setTimestamp(new Date(giveaway.endTime));
 
-      const disabledRow = this.buildDisabledRow(giveaway.id, 'Giveaway Ended');
-      await message.edit({ embeds: [baseEmbed], components: [disabledRow] });
+      await message.edit({ embeds: [baseEmbed] });
       await channel.send(`🔄 Reroll time! Congratulations <@${winnerId}> — you're a new winner of **${giveaway.prize}**.`);
     } catch (error) {
       console.error('[GiveawayManager] Error rerolling giveaway:', error);
     }
 
-    this.giveaways.set(giveaway.id, giveaway);
-    this.saveGiveaways();
+    console.log(`🔄 Rerolled giveaway: ${giveaway.prize} - New winner: ${winnerId}`);
     return winnerId;
   }
 
@@ -792,7 +461,5 @@ class GiveawayManager {
     return member.permissions.has(PermissionsBitField.Flags.ManageGuild) || member.permissions.has(PermissionsBitField.Flags.Administrator);
   }
 }
-
-GiveawayManager.STATUS = GIVEAWAY_STATUS;
 
 module.exports = GiveawayManager;
