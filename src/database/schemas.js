@@ -151,7 +151,13 @@ statisticsSchema.methods.getTodayStats = function() {
         this.dailyStats.push(todayStats);
     }
     
-    // Return flattened version for easier access in commands
+    return todayStats;
+};
+
+// Helper method to get flattened today's stats for display
+statisticsSchema.methods.getTodayStatsFlattened = function() {
+    const todayStats = this.getTodayStats();
+    
     return {
         date: todayStats.date,
         joins: todayStats.members?.joins || 0,

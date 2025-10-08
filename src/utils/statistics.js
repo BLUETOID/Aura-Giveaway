@@ -171,7 +171,7 @@ class StatisticsManager {
       const stats = await this.getGuildStats(guildId);
       if (!stats) return null;
 
-      return stats.getTodayStats();
+      return stats.getTodayStatsFlattened();
     } catch (error) {
       console.error('❌ Error fetching today stats:', error.message);
       return null;
