@@ -228,7 +228,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
   } else if (interaction.isButton()) {
-    await giveawayManager.handleButtonInteraction(interaction);
+    // Button interactions for giveaways (if implemented in the future)
+    console.log(`Button interaction: ${interaction.customId}`);
   }
 });
 

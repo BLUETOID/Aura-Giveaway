@@ -58,8 +58,8 @@ module.exports = {
 
 async function handleOverview(interaction, statsManager) {
   const guildId = interaction.guildId;
-  const todayStats = statsManager.getTodayStats(guildId);
-  const guildStats = statsManager.getGuildStats(guildId);
+  const todayStats = await statsManager.getTodayStats(guildId);
+  const guildStats = await statsManager.getGuildStats(guildId);
   
   const guild = interaction.guild;
   const memberCount = guild.memberCount;
@@ -126,7 +126,7 @@ async function handleOverview(interaction, statsManager) {
 
 async function handleDaily(interaction, statsManager) {
   const guildId = interaction.guildId;
-  const todayStats = statsManager.getTodayStats(guildId);
+  const todayStats = await statsManager.getTodayStats(guildId);
   const guild = interaction.guild;
   
   const voiceHours = (todayStats.voiceMinutes / 60).toFixed(1);
@@ -228,7 +228,7 @@ async function handleDaily(interaction, statsManager) {
 
 async function handleWeekly(interaction, statsManager) {
   const guildId = interaction.guildId;
-  const weeklyData = statsManager.getWeeklyStats(guildId);
+  const weeklyData = await statsManager.getWeeklyStats(guildId);
   const guild = interaction.guild;
   
   // Calculate totals
@@ -360,8 +360,8 @@ async function handleWeekly(interaction, statsManager) {
 
 async function handleMembers(interaction, statsManager) {
   const guildId = interaction.guildId;
-  const weeklyData = statsManager.getWeeklyStats(guildId);
-  const guildStats = statsManager.getGuildStats(guildId);
+  const weeklyData = await statsManager.getWeeklyStats(guildId);
+  const guildStats = await statsManager.getGuildStats(guildId);
   const guild = interaction.guild;
   
   const totalJoins = weeklyData.reduce((sum, day) => sum + day.joins, 0);
@@ -432,8 +432,8 @@ async function handleMembers(interaction, statsManager) {
 
 async function handleActivity(interaction, statsManager) {
   const guildId = interaction.guildId;
-  const weeklyData = statsManager.getWeeklyStats(guildId);
-  const guildStats = statsManager.getGuildStats(guildId);
+  const weeklyData = await statsManager.getWeeklyStats(guildId);
+  const guildStats = await statsManager.getGuildStats(guildId);
   const guild = interaction.guild;
   
   const totalMessages = weeklyData.reduce((sum, day) => sum + day.messages, 0);
