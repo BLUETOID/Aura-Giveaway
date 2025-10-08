@@ -151,7 +151,15 @@ statisticsSchema.methods.getTodayStats = function() {
         this.dailyStats.push(todayStats);
     }
     
-    return todayStats;
+    // Return flattened version for easier access in commands
+    return {
+        date: todayStats.date,
+        joins: todayStats.members?.joins || 0,
+        leaves: todayStats.members?.leaves || 0,
+        messages: todayStats.messages?.total || 0,
+        voiceMinutes: todayStats.voice?.totalMinutes || 0,
+        maxOnline: todayStats.peakOnline || 0
+    };
 };
 
 // Helper method to get stats for last N days
@@ -165,15 +173,47 @@ statisticsSchema.methods.getLastNDaysStats = function(days = 7) {
     
     return dates.map(date => {
         const stat = this.dailyStats.find(s => s.date === date);
-        return stat || {
-            date,
-            members: { joins: 0, leaves: 0, total: 0 },
-            messages: { total: 0, byChannel: new Map(), byUser: new Map() },
-            voice: { joins: 0, leaves: 0, activeUsers: new Map(), totalMinutes: 0 },
-            peakOnline: 0
+        if (!stat) {
+            return {
+                date,
+                joins: 0,
+                leaves: 0,
+                messages: 0,
+                voiceMinutes: 0,
+                maxOnline: 0
+            };
+        }
+        
+        // Return flattened version for easier access
+        return {
+            date: stat.date,
+            joins: stat.members?.joins || 0,
+            leaves: stat.members?.leaves || 0,
+            messages: stat.messages?.total || 0,
+            voiceMinutes: stat.voice?.totalMinutes || 0,
+            maxOnline: stat.peakOnline || 0
         };
     });
 };
+
+// Virtual property to calculate all-time totals from daily stats
+statisticsSchema.virtual('totalStats').get(function() {
+    const totals = {
+        totalJoins: 0,
+        totalLeaves: 0,
+        totalMessages: 0,
+        totalVoiceMinutes: 0
+    };
+    
+    this.dailyStats.forEach(day => {
+        totals.totalJoins += day.members?.joins || 0;
+        totals.totalLeaves += day.members?.leaves || 0;
+        totals.totalMessages += day.messages?.total || 0;
+        totals.totalVoiceMinutes += day.voice?.totalMinutes || 0;
+    });
+    
+    return totals;
+});
 
 // ========================================
 // EXPORT MODELS
