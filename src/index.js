@@ -138,7 +138,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   // Track message statistics
-  statsManager.trackMessage(message.guildId);
+  statsManager.recordMessage(message.guildId);
 
   const guildPrefix = settingsManager.getPrefix(message.guildId);
 
@@ -251,13 +251,13 @@ client.on('reconnecting', () => {
 
 // Member join tracking
 client.on(Events.GuildMemberAdd, async (member) => {
-  statsManager.trackJoin(member.guild.id);
+  statsManager.recordMemberJoin(member.guild.id);
   console.log(`📥 Member joined: ${member.user.tag} in ${member.guild.name}`);
 });
 
 // Member leave tracking
 client.on(Events.GuildMemberRemove, async (member) => {
-  statsManager.trackLeave(member.guild.id);
+  statsManager.recordMemberLeave(member.guild.id);
   console.log(`📤 Member left: ${member.user.tag} from ${member.guild.name}`);
 });
 
@@ -268,13 +268,13 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 
   // User joined a voice channel
   if (!oldState.channel && newState.channel) {
-    statsManager.trackVoiceJoin(guildId, userId);
+    statsManager.recordVoiceJoin(userId, guildId, newState.channel.id);
     console.log(`🎤 ${newState.member.user.tag} joined voice channel in ${newState.guild.name}`);
   }
   
   // User left a voice channel
   if (oldState.channel && !newState.channel) {
-    statsManager.trackVoiceLeave(guildId, userId);
+    statsManager.recordVoiceLeave(userId);
     console.log(`🔇 ${newState.member.user.tag} left voice channel in ${newState.guild.name}`);
   }
 });
@@ -283,7 +283,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   // Check if roles changed
   if (oldMember.roles.cache.size !== newMember.roles.cache.size) {
-    statsManager.trackRoleChange(newMember.guild.id);
+    statsManager.recordRoleChange(newMember.guild.id);
     console.log(`🎭 Role changed for ${newMember.user.tag} in ${newMember.guild.name}`);
   }
 });
