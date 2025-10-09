@@ -159,14 +159,14 @@ module.exports = {
 
       case 'entries': {
         const identifier = interaction.options.getString('identifier', true);
-        const giveaway = manager.resolveGiveaway(identifier);
+        const giveaway = await manager.resolveGiveaway(identifier);
 
         if (!giveaway) {
           await interaction.reply({ content: 'No giveaway found for that identifier.', ephemeral: true });
           return;
         }
 
-        if (!giveaway.participants.length) {
+        if (!giveaway.entries.length) {
           await interaction.reply({ content: `No one has entered giveaway **${giveaway.prize || 'Unknown prize'}** yet.`, ephemeral: true });
           return;
         }
@@ -175,8 +175,8 @@ module.exports = {
         const isAdmin = manager.isAdmin(interaction.member);
         
         if (isAdmin) {
-          const header = `Entries for **${giveaway.prize}** (Giveaway ID: ${giveaway.id}) — ${giveaway.participants.length} total:`;
-          const ids = giveaway.participants.map((participantId, index) => `${index + 1}. <@${participantId}>`);
+          const header = `Entries for **${giveaway.prize}** (Giveaway ID: ${giveaway.messageId}) — ${giveaway.entries.length} total:`;
+          const ids = giveaway.entries.map((participantId, index) => `${index + 1}. <@${participantId}>`);
           const chunkSize = 20;
           const chunks = [];
           for (let i = 0; i < ids.length; i += chunkSize) {
@@ -190,7 +190,7 @@ module.exports = {
           }
         } else {
           // Non-admins only get count
-          await interaction.reply({ content: `**${giveaway.prize}** (ID: ${giveaway.id}) has ${giveaway.participants.length} entries. Only administrators can view the participant list.`, ephemeral: true });
+          await interaction.reply({ content: `**${giveaway.prize}** (ID: ${giveaway.messageId}) has ${giveaway.entries.length} entries. Only administrators can view the participant list.`, ephemeral: true });
         }
         return;
       }
@@ -225,7 +225,7 @@ module.exports = {
 
       case 'list': {
         const statusFilter = interaction.options.getString('status');
-        const giveaways = manager.getAllGiveaways();
+        const giveaways = await manager.getAllGiveaways();
 
         if (!giveaways.length) {
           await interaction.reply({ content: 'No giveaways have been recorded yet.', ephemeral: true });
@@ -233,7 +233,12 @@ module.exports = {
         }
 
         const filtered = statusFilter
-          ? giveaways.filter((giveaway) => giveaway.status === statusFilter)
+          ? giveaways.filter((giveaway) => {
+              if (statusFilter === 'active') return !giveaway.ended;
+              if (statusFilter === 'ended') return giveaway.ended && giveaway.winners.length > 0;
+              if (statusFilter === 'cancelled') return giveaway.ended && giveaway.winners.length === 0;
+              return true;
+            })
           : giveaways;
 
         if (!filtered.length) {
@@ -241,36 +246,23 @@ module.exports = {
           return;
         }
 
-        const statusLabel = {
-          [manager.constructor.STATUS?.ACTIVE || 'active']: 'Active',
-          [manager.constructor.STATUS?.ENDED || 'ended']: 'Ended',
-          [manager.constructor.STATUS?.CANCELLED || 'cancelled']: 'Cancelled'
-        };
-
         const lines = filtered
           .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
           .map((giveaway) => {
-            const label = statusLabel[giveaway.status] || giveaway.status;
+            const isActive = !giveaway.ended;
+            const label = isActive ? 'Active' : (giveaway.winners.length > 0 ? 'Ended' : 'Cancelled');
             const channelMention = giveaway.channelId ? `<#${giveaway.channelId}>` : 'Unknown channel';
+            
             let timing;
-
-            if (giveaway.status === 'active') {
-              timing = giveaway.endsAt ? `Ends <t:${Math.floor(giveaway.endsAt / 1000)}:R>` : 'End time unknown';
-            } else if (giveaway.status === 'ended') {
-              timing = giveaway.endedAt ? `Ended <t:${Math.floor(giveaway.endedAt / 1000)}:R>` : 'Ended';
-            } else if (giveaway.status === 'cancelled') {
-              timing = giveaway.cancelledAt ? `Cancelled <t:${Math.floor(giveaway.cancelledAt / 1000)}:R>` : 'Cancelled';
+            if (isActive) {
+              timing = giveaway.endTime ? `Ends <t:${Math.floor(giveaway.endTime.getTime() / 1000)}:R>` : 'End time unknown';
             } else {
-              timing = '';
+              timing = giveaway.endTime ? `Ended <t:${Math.floor(giveaway.endTime.getTime() / 1000)}:R>` : 'Ended';
             }
 
             let detail = '';
-            if (giveaway.status === 'ended') {
-              detail = giveaway.winnerIds?.length
-                ? ` — Winners: ${giveaway.winnerIds.map((id) => `<@${id}>`).join(', ')}`
-                : ' — No winners';
-            } else if (giveaway.status === 'cancelled') {
-              detail = giveaway.cancelReason ? ` — Reason: ${giveaway.cancelReason}` : '';
+            if (!isActive && giveaway.winners.length > 0) {
+              detail = ` — Winners: ${giveaway.winners.map((id) => `<@${id}>`).join(', ')}`;
             }
 
             return `• [${label}] **${giveaway.prize || 'No prize set'}** in ${channelMention}${timing ? ` — ${timing}` : ''}${detail}`;
