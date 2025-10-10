@@ -27,7 +27,29 @@ module.exports = {
     .addSubcommand(subcommand =>
       subcommand
         .setName('activity')
-        .setDescription('View server activity statistics')),
+        .setDescription('View server activity statistics'))
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('leaderboard')
+        .setDescription('View message leaderboard')
+        .addStringOption(option =>
+          option
+            .setName('period')
+            .setDescription('Time period for leaderboard')
+            .setRequired(false)
+            .addChoices(
+              { name: 'All Time', value: 'all' },
+              { name: 'This Month', value: 'monthly' },
+              { name: 'This Week', value: 'weekly' },
+              { name: 'Today', value: 'daily' }
+            ))
+        .addIntegerOption(option =>
+          option
+            .setName('limit')
+            .setDescription('Number of users to show (max 25)')
+            .setRequired(false)
+            .setMinValue(1)
+            .setMaxValue(25))),
 
   async execute(interaction, { statsManager }) {
     if (!statsManager) {
@@ -51,6 +73,9 @@ module.exports = {
         break;
       case 'activity':
         await handleActivity(interaction, statsManager);
+        break;
+      case 'leaderboard':
+        await handleLeaderboard(interaction, statsManager);
         break;
     }
   },
@@ -508,4 +533,61 @@ function createMiniChart(data) {
     const index = Math.min(Math.floor((value / max) * bars.length), bars.length - 1);
     return bars[index];
   }).join('');
+}
+
+async function handleLeaderboard(interaction, statsManager) {
+  const period = interaction.options.getString('period') || 'all';
+  const limit = interaction.options.getInteger('limit') || 10;
+  
+  await interaction.deferReply();
+  
+  try {
+    const leaderboard = await statsManager.getMessageLeaderboard(
+      interaction.guild.id,
+      limit,
+      period
+    );
+    
+    if (leaderboard.length === 0) {
+      return interaction.editReply('📊 No message data available for the selected period.');
+    }
+
+    const periodNames = {
+      all: 'All Time',
+      monthly: 'This Month',
+      weekly: 'This Week',
+      daily: 'Today'
+    };
+
+    const embed = new EmbedBuilder()
+      .setColor('#ffd700')
+      .setTitle(`🏆 Message Leaderboard - ${periodNames[period]}`)
+      .setDescription('Top message senders in this server')
+      .setTimestamp();
+
+    let description = '';
+    leaderboard.forEach((user, index) => {
+      const medal = 
+        index === 0 ? '🥇' : 
+        index === 1 ? '🥈' : 
+        index === 2 ? '🥉' : 
+        `**${index + 1}.**`;
+      
+      const lastActive = user.lastActive ? 
+        `<t:${Math.floor(user.lastActive.getTime() / 1000)}:R>` : 
+        'Unknown';
+        
+      description += `${medal} **${user.username}** - **${user.messages.toLocaleString()}** messages\n`;
+      description += `└ Last active: ${lastActive}\n\n`;
+    });
+
+    embed.setDescription(description);
+    embed.setFooter({ text: `${interaction.guild.name} • ${periodNames[period]} Stats` });
+    
+    await interaction.editReply({ embeds: [embed] });
+    
+  } catch (error) {
+    console.error('Error in leaderboard:', error);
+    await interaction.editReply('❌ Error loading leaderboard.');
+  }
 }

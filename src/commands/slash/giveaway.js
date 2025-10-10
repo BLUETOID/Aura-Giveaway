@@ -51,6 +51,20 @@ module.exports = {
             .setMaxValue(50)
             .setRequired(false)
         )
+        .addBooleanOption((option) =>
+          option
+            .setName('message_requirement')
+            .setDescription('Require users to send messages to participate')
+            .setRequired(false)
+        )
+        .addIntegerOption((option) =>
+          option
+            .setName('message_count')
+            .setDescription('Number of total messages required (default: 5)')
+            .setMinValue(1)
+            .setMaxValue(10000)
+            .setRequired(false)
+        )
     )
     .addSubcommand((subcommand) =>
       subcommand
@@ -123,6 +137,8 @@ module.exports = {
         const prize = interaction.options.getString('prize');
         const requiredRole = interaction.options.getRole('required_role');
         const winnerCount = interaction.options.getInteger('winners') || 1;
+        const messageRequirementEnabled = interaction.options.getBoolean('message_requirement') || false;
+        const messageCount = interaction.options.getInteger('message_count') || 5;
 
         if (!channel || !channel.isTextBased()) {
           await interaction.reply({ content: 'Please choose a text-based channel.', ephemeral: true });
@@ -143,11 +159,17 @@ module.exports = {
             durationMs,
             hostId: interaction.user.id,
             requirements: requiredRole ? { roleId: requiredRole.id } : {},
-            winnerCount
+            winnerCount,
+            messageRequirement: messageRequirementEnabled ? { enabled: true, count: messageCount } : { enabled: false, count: 5 }
           });
 
+          let replyMessage = `Giveaway created in ${channel} for **${prize}**. Ends <t:${Math.floor(new Date(giveaway.endTime).getTime() / 1000)}:R>.`;
+          if (messageRequirementEnabled) {
+            replyMessage += `\n💬 **Requirement:** Users must have sent ${messageCount} total messages to participate.`;
+          }
+
           await interaction.reply({
-            content: `Giveaway created in ${channel} for **${prize}**. Ends <t:${Math.floor(giveaway.endsAt / 1000)}:R>.`,
+            content: replyMessage,
             ephemeral: true
           });
         } catch (error) {

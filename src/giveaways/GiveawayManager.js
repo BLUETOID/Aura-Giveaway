@@ -16,10 +16,13 @@ class GiveawayManager {
   constructor() {
     this.client = null;
     this.timers = new Map();
+    this.countdownTimers = new Map();
+    this.statsManager = null;
   }
 
-  async init(client) {
+  async init(client, statsManager = null) {
     this.client = client;
+    this.statsManager = statsManager;
     
     // Ensure MongoDB is connected
     if (!mongodb.isDBConnected()) {
@@ -116,7 +119,7 @@ class GiveawayManager {
     }
   }
 
-  async createGiveaway({ guildId, channelId, prize, durationMs, hostId, requirements = {}, winnerCount = 1 }) {
+  async createGiveaway({ guildId, channelId, prize, durationMs, hostId, requirements = {}, winnerCount = 1, messageRequirement = null }) {
     if (!this.client) {
       throw new Error('GiveawayManager is not initialized yet.');
     }
@@ -130,13 +133,19 @@ class GiveawayManager {
     const endTime = new Date(Date.now() + durationMs);
     const winnerText = winnerCount === 1 ? '1 Winner' : `${winnerCount} Winners`;
     
+    // Create embed with countdown
+    let description = 'React with 🎉 below to enter the giveaway!';
+    if (messageRequirement?.enabled) {
+      description += `\n\n💬 **Requirement:** Send ${messageRequirement.count} messages to participate`;
+    }
+    
     const embed = new EmbedBuilder()
-      .setTitle(prize)
-      .setDescription('React with 🎉 below to enter the giveaway!')
+      .setTitle(`🎉 ${prize}`)
+      .setDescription(description)
       .addFields(
         { name: 'Hosted by', value: `<@${hostId}>`, inline: true },
         { name: 'Winners', value: winnerText, inline: true },
-        { name: 'Ends in', value: formatDuration(durationMs), inline: true }
+        { name: 'Ends', value: `<t:${Math.floor(endTime.getTime() / 1000)}:R>`, inline: true }
       )
       .setFooter({ text: '0 entries' })
       .setTimestamp(endTime)
@@ -144,7 +153,7 @@ class GiveawayManager {
 
     if (requirements.roleId) {
       embed.addFields({
-        name: 'Requirements',
+        name: 'Role Requirement',
         value: `Must have <@&${requirements.roleId}>`
       });
     }
@@ -169,13 +178,16 @@ class GiveawayManager {
       endTime,
       entries: [],
       ended: false,
-      winners: []
+      winners: [],
+      messageRequirement: messageRequirement || { enabled: false, count: 5 }
     });
 
     await giveaway.save();
     console.log(`✅ Created giveaway: ${prize} (${giveaway.messageId})`);
 
     this.scheduleGiveaway(giveaway);
+    this.startCountdownUpdates(giveaway);
+
 
     return giveaway;
   }
@@ -199,6 +211,24 @@ class GiveawayManager {
     const member = await message.guild.members.fetch(user.id).catch(() => null);
     if (!member) {
       return;
+    }
+
+    // Check message requirement
+    if (giveaway.messageRequirement?.enabled) {
+      const participationCheck = await this.canParticipate(giveaway, user.id);
+      
+      if (!participationCheck.canParticipate) {
+        // Remove reaction
+        await reaction.users.remove(user.id).catch(() => {});
+        
+        // Send DM
+        try {
+          await user.send(`❌ **Giveaway Participation Failed**\n\n${participationCheck.message}\n\nGiveaway: **${giveaway.prize}**`);
+        } catch (error) {
+          // User has DMs disabled, ignore
+        }
+        return;
+      }
     }
 
     // Add user to entries if not already there
@@ -459,6 +489,101 @@ class GiveawayManager {
       return false;
     }
     return member.permissions.has(PermissionsBitField.Flags.ManageGuild) || member.permissions.has(PermissionsBitField.Flags.Administrator);
+  }
+
+  async canParticipate(giveaway, userId) {
+    if (!giveaway.messageRequirement?.enabled) {
+      return { canParticipate: true };
+    }
+
+    const required = giveaway.messageRequirement.count;
+    
+    try {
+      if (!this.statsManager) {
+        console.warn('⚠️ Stats manager not available for giveaway participation check');
+        return { canParticipate: true };
+      }
+
+      // Check total messages sent by user (across all time)
+      const totalMessages = await this.statsManager.getUserTotalMessages(
+        giveaway.guildId,
+        userId
+      );
+      
+      const canParticipate = totalMessages >= required;
+      
+      return {
+        canParticipate,
+        currentMessages: totalMessages,
+        requiredMessages: required,
+        message: canParticipate ? null :
+          `You need to send ${required - totalMessages} more messages to participate in this giveaway. (You have sent ${totalMessages} total messages)`
+      };
+    } catch (error) {
+      console.error('❌ Error checking participation:', error);
+      return { canParticipate: false, message: 'Error checking participation requirements.' };
+    }
+  }
+
+  startCountdownUpdates(giveaway) {
+    if (giveaway.ended) return;
+
+    const updateInterval = 60000; // Update every minute
+    const messageId = giveaway.messageId;
+
+    const updateCountdown = async () => {
+      try {
+        const now = Date.now();
+        const endTime = new Date(giveaway.endTime).getTime();
+        const remaining = endTime - now;
+
+        if (remaining <= 0) {
+          this.stopCountdownUpdates(messageId);
+          return;
+        }
+
+        // Fetch and update the message
+        const channel = await this.client.channels.fetch(giveaway.channelId);
+        const message = await channel.messages.fetch(messageId);
+        
+        const embed = message.embeds[0];
+        if (embed) {
+          const hours = Math.floor(remaining / (1000 * 60 * 60));
+          const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+          
+          const countdown = `⏰ ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+          let description = 'React with 🎉 below to enter the giveaway!';
+          if (giveaway.messageRequirement?.enabled) {
+            description += `\n\n💬 **Requirement:** Send ${giveaway.messageRequirement.count} messages to participate`;
+          }
+          description += `\n\n${countdown}`;
+
+          const updatedEmbed = new EmbedBuilder(embed.data)
+            .setDescription(description);
+
+          await message.edit({ embeds: [updatedEmbed] });
+        }
+      } catch (error) {
+        console.error('❌ Error updating countdown:', error.message);
+      }
+    };
+
+    // Initial update
+    updateCountdown();
+
+    // Schedule periodic updates
+    const timer = setInterval(updateCountdown, updateInterval);
+    this.countdownTimers.set(messageId, timer);
+  }
+
+  stopCountdownUpdates(messageId) {
+    const timer = this.countdownTimers.get(messageId);
+    if (timer) {
+      clearInterval(timer);
+      this.countdownTimers.delete(messageId);
+    }
   }
 }
 

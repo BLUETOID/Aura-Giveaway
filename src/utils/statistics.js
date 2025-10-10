@@ -1,4 +1,4 @@
-const { Statistics } = require('../database/schemas');
+const { Statistics, UserStats } = require('../database/schemas');
 const mongodb = require('../database/mongodb');
 
 const RETENTION_DAYS = 30; // Keep 30 days of data
@@ -77,7 +77,7 @@ class StatisticsManager {
     }
   }
 
-  async recordMessage(guildId, channelId = null, userId = null) {
+  async recordMessage(guildId, channelId = null, userId = null, username = null) {
     try {
       const stats = await this.getGuildStats(guildId);
       if (!stats) return;
@@ -99,8 +99,116 @@ class StatisticsManager {
       
       stats.lastUpdated = new Date();
       await stats.save();
+
+      // Update user total stats
+      if (userId && username) {
+        await this.recordUserMessage(guildId, userId, username);
+      }
     } catch (error) {
       console.error('❌ Error recording message:', error.message);
+    }
+  }
+
+  async recordUserMessage(guildId, userId, username) {
+    try {
+      const now = new Date();
+      
+      await UserStats.findOneAndUpdate(
+        { guildId, userId },
+        {
+          $inc: {
+            'messages.total': 1,
+            'messages.daily': 1,
+            'messages.weekly': 1,
+            'messages.monthly': 1
+          },
+          $set: {
+            username: username,
+            lastMessageDate: now,
+            isActive: true
+          }
+        },
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true
+        }
+      );
+    } catch (error) {
+      console.error('❌ Error recording user message:', error.message);
+    }
+  }
+
+  async getUserTotalMessages(guildId, userId) {
+    try {
+      const userStats = await UserStats.findOne({ guildId, userId });
+      return userStats ? userStats.messages.total : 0;
+    } catch (error) {
+      console.error('❌ Error getting user message count:', error.message);
+      return 0;
+    }
+  }
+
+  async getMessageLeaderboard(guildId, limit = 10, period = 'all') {
+    try {
+      let sortField;
+      switch (period) {
+        case 'daily':
+          sortField = 'messages.daily';
+          break;
+        case 'weekly':
+          sortField = 'messages.weekly';
+          break;
+        case 'monthly':
+          sortField = 'messages.monthly';
+          break;
+        default:
+          sortField = 'messages.total';
+      }
+
+      const users = await UserStats.find({ guildId })
+        .sort({ [sortField]: -1 })
+        .limit(limit)
+        .select('userId username messages lastMessageDate');
+
+      return users.map((user, index) => ({
+        rank: index + 1,
+        userId: user.userId,
+        username: user.username,
+        messages: period === 'all' ? user.messages.total : user.messages[period],
+        lastActive: user.lastMessageDate
+      }));
+    } catch (error) {
+      console.error('❌ Error getting message leaderboard:', error.message);
+      return [];
+    }
+  }
+
+  async resetCounters(period) {
+    try {
+      let updateField;
+      switch (period) {
+        case 'daily':
+          updateField = 'messages.daily';
+          break;
+        case 'weekly':
+          updateField = 'messages.weekly';
+          break;
+        case 'monthly':
+          updateField = 'messages.monthly';
+          break;
+        default:
+          return;
+      }
+
+      const result = await UserStats.updateMany(
+        {},
+        { $set: { [updateField]: 0 } }
+      );
+
+      console.log(`✅ Reset ${period} message counters (${result.modifiedCount} users)`);
+    } catch (error) {
+      console.error(`❌ Error resetting ${period} counters:`, error.message);
     }
   }
 

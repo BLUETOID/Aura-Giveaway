@@ -85,6 +85,60 @@ function loadSlashCommands() {
 loadPrefixCommands();
 loadSlashCommands();
 
+// Function to schedule counter resets
+function scheduleCounterResets() {
+  const now = new Date();
+  
+  // Reset daily counters at midnight UTC
+  const midnight = new Date(now);
+  midnight.setUTCHours(24, 0, 0, 0);
+  const timeToMidnight = midnight - now;
+  
+  console.log(`⏰ Daily reset scheduled in ${Math.round(timeToMidnight / 1000 / 60)} minutes`);
+  
+  setTimeout(async () => {
+    await statsManager.resetCounters('daily');
+    // Schedule next daily reset
+    setInterval(() => statsManager.resetCounters('daily'), 24 * 60 * 60 * 1000);
+  }, timeToMidnight);
+  
+  // Reset weekly counters every Monday at midnight UTC
+  const nextMonday = new Date(now);
+  const daysUntilMonday = (8 - now.getUTCDay()) % 7 || 7;
+  nextMonday.setUTCDate(now.getUTCDate() + daysUntilMonday);
+  nextMonday.setUTCHours(0, 0, 0, 0);
+  const timeToMonday = nextMonday - now;
+  
+  console.log(`⏰ Weekly reset scheduled in ${Math.round(timeToMonday / 1000 / 60 / 60)} hours`);
+  
+  setTimeout(async () => {
+    await statsManager.resetCounters('weekly');
+    // Schedule next weekly reset
+    setInterval(() => statsManager.resetCounters('weekly'), 7 * 24 * 60 * 60 * 1000);
+  }, timeToMonday);
+  
+  // Reset monthly counters on 1st of each month at midnight UTC
+  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  const timeToNextMonth = nextMonth - now;
+  
+  console.log(`⏰ Monthly reset scheduled in ${Math.round(timeToNextMonth / 1000 / 60 / 60 / 24)} days`);
+  
+  setTimeout(async () => {
+    await statsManager.resetCounters('monthly');
+    // Schedule next monthly reset
+    const scheduleNextMonthly = () => {
+      const now = new Date();
+      const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+      const delay = nextMonth - now;
+      setTimeout(async () => {
+        await statsManager.resetCounters('monthly');
+        scheduleNextMonthly();
+      }, delay);
+    };
+    scheduleNextMonthly();
+  }, timeToNextMonth);
+}
+
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`✅ Ready! Logged in as ${readyClient.user.tag}`);
   console.log(`🤖 Bot ID: ${readyClient.user.id}`);
@@ -109,11 +163,11 @@ client.once(Events.ClientReady, async (readyClient) => {
   }
   
   // Initialize managers with MongoDB
-  await giveawayManager.init(readyClient);
-  console.log('🎉 Giveaway Manager initialized successfully!');
-  
   await statsManager.init(readyClient);
   console.log('📊 Statistics Manager initialized successfully!');
+  
+  await giveawayManager.init(readyClient, statsManager);
+  console.log('🎉 Giveaway Manager initialized successfully!');
   
   // Initialize guild member counts for statistics
   console.log('👥 Initializing guild member counts...');
@@ -145,6 +199,9 @@ client.once(Events.ClientReady, async (readyClient) => {
     await statsManager.cleanupOldStats();
   }, 24 * 60 * 60 * 1000); // 24 hours
   
+  // Schedule counter resets
+  scheduleCounterResets();
+  
   // Track online members every 5 minutes
   setInterval(async () => {
     for (const guild of readyClient.guilds.cache.values()) {
@@ -168,7 +225,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   // Track message statistics with channel and user info
-  await statsManager.recordMessage(message.guildId, message.channelId, message.author.id);
+  await statsManager.recordMessage(message.guildId, message.channelId, message.author.id, message.author.username);
 
   const guildPrefix = settingsManager.getPrefix(message.guildId);
 

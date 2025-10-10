@@ -53,6 +53,10 @@ const giveawaySchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    messageRequirement: {
+        enabled: { type: Boolean, default: false },
+        count: { type: Number, default: 5 }
     }
 }, {
     timestamps: true // Adds createdAt and updatedAt automatically
@@ -222,13 +226,61 @@ statisticsSchema.virtual('totalStats').get(function() {
 });
 
 // ========================================
+// USER STATISTICS SCHEMA
+// ========================================
+
+const userStatsSchema = new mongoose.Schema({
+    guildId: {
+        type: String,
+        required: true,
+        index: true
+    },
+    userId: {
+        type: String,
+        required: true,
+        index: true
+    },
+    username: {
+        type: String,
+        required: true
+    },
+    
+    // Message statistics
+    messages: {
+        total: { type: Number, default: 0 },
+        daily: { type: Number, default: 0 },
+        weekly: { type: Number, default: 0 },
+        monthly: { type: Number, default: 0 }
+    },
+    
+    // Activity tracking
+    lastMessageDate: { type: Date, default: Date.now },
+    joinDate: { type: Date, default: Date.now },
+    isActive: { type: Boolean, default: true },
+    
+    // Other stats
+    voiceTime: { type: Number, default: 0 }, // Total minutes
+    giveawaysEntered: { type: Number, default: 0 },
+    giveawaysWon: { type: Number, default: 0 }
+}, {
+    timestamps: true
+});
+
+// Compound index for efficient queries
+userStatsSchema.index({ guildId: 1, userId: 1 }, { unique: true });
+userStatsSchema.index({ guildId: 1, 'messages.total': -1 }); // For leaderboard
+userStatsSchema.index({ lastMessageDate: -1 }); // For activity checks
+
+// ========================================
 // EXPORT MODELS
 // ========================================
 
 const Giveaway = mongoose.model('Giveaway', giveawaySchema);
 const Statistics = mongoose.model('Statistics', statisticsSchema);
+const UserStats = mongoose.model('UserStats', userStatsSchema);
 
 module.exports = {
     Giveaway,
-    Statistics
+    Statistics,
+    UserStats
 };
