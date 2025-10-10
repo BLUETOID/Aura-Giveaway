@@ -22,6 +22,10 @@ module.exports = {
         .setDescription('View weekly statistics summary'))
     .addSubcommand(subcommand =>
       subcommand
+        .setName('monthly')
+        .setDescription('View monthly statistics summary'))
+    .addSubcommand(subcommand =>
+      subcommand
         .setName('members')
         .setDescription('View member growth statistics'))
     .addSubcommand(subcommand =>
@@ -67,6 +71,9 @@ module.exports = {
         break;
       case 'weekly':
         await handleWeekly(interaction, statsManager);
+        break;
+      case 'monthly':
+        await handleMonthly(interaction, statsManager);
         break;
       case 'members':
         await handleMembers(interaction, statsManager);
@@ -381,6 +388,77 @@ async function handleWeekly(interaction, statsManager) {
       );
     message.edit({ components: [disabledRow] }).catch(() => {});
   });
+}
+
+async function handleMonthly(interaction, statsManager) {
+  const guildId = interaction.guildId;
+  const monthlyData = await statsManager.getMonthlyStats(guildId);
+  const guild = interaction.guild;
+  
+  // Calculate totals
+  const totalJoins = monthlyData.reduce((sum, day) => sum + day.joins, 0);
+  const totalLeaves = monthlyData.reduce((sum, day) => sum + day.leaves, 0);
+  const totalMessages = monthlyData.reduce((sum, day) => sum + day.messages, 0);
+  const totalVoiceMinutes = monthlyData.reduce((sum, day) => sum + day.voiceMinutes, 0);
+  const netGrowth = totalJoins - totalLeaves;
+  
+  // Create mini charts
+  const joinChart = createMiniChart(monthlyData.slice(0, 30).map(d => d.joins));
+  const messageChart = createMiniChart(monthlyData.slice(0, 30).map(d => d.messages));
+  
+  // Calculate averages
+  const avgMessages = Math.round(totalMessages / 30);
+  const avgVoiceHours = (totalVoiceMinutes / 60 / 30).toFixed(1);
+  
+  const embed = new EmbedBuilder()
+    .setColor('#9B59B6')
+    .setTitle(`📊 Monthly Statistics`)
+    .setDescription(`Past 30 days overview for ${guild.name}`)
+    .addFields(
+      {
+        name: '👥 Member Growth',
+        value: [
+          `Joins: **${totalJoins}** ${joinChart}`,
+          `Leaves: **${totalLeaves}**`,
+          `Net: **${netGrowth > 0 ? '+' : ''}${netGrowth}** members`
+        ].join('\n'),
+        inline: false
+      },
+      {
+        name: '💬 Message Activity',
+        value: [
+          `Total: **${totalMessages.toLocaleString()}** ${messageChart}`,
+          `Daily Avg: **${avgMessages.toLocaleString()}**`,
+          `Peak Day: **${Math.max(...monthlyData.map(d => d.messages)).toLocaleString()}**`
+        ].join('\n'),
+        inline: false
+      },
+      {
+        name: '🎤 Voice Activity',
+        value: [
+          `Total: **${(totalVoiceMinutes / 60).toFixed(1)}** hours`,
+          `Daily Avg: **${avgVoiceHours}** hours`
+        ].join('\n'),
+        inline: true
+      },
+      {
+        name: '📈 Peak Online',
+        value: [
+          `Highest: **${Math.max(...monthlyData.map(d => d.maxOnline))}**`,
+          `Average: **${Math.round(monthlyData.reduce((sum, d) => sum + d.maxOnline, 0) / 30)}**`
+        ].join('\n'),
+        inline: true
+      },
+      {
+        name: '📅 Date Range',
+        value: `${monthlyData[0].date} to ${monthlyData[29].date}`,
+        inline: false
+      }
+    )
+    .setFooter({ text: 'Monthly statistics • Last 30 days' })
+    .setTimestamp();
+
+  await interaction.reply({ embeds: [embed] });
 }
 
 async function handleMembers(interaction, statsManager) {

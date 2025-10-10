@@ -53,7 +53,7 @@ function createHelpPages(prefix) {
     .addFields(
       { 
         name: `\`${prefix}giveaway create\``, 
-        value: `Create a new giveaway\n**Usage:** \`${prefix}giveaway create #channel <duration> [winners] <prize> [@role]\`\n**Example:** \`${prefix}giveaway create #general 1h 3 Discord Nitro\``, 
+        value: `Create a new giveaway\n**Usage:** \`${prefix}giveaway create #channel <duration> [winners] <prize> [@role]\`\n**Example:** \`${prefix}giveaway create #general 1h 3 Discord Nitro\`\n**Note:** Use slash command \`/giveaway create\` for message requirements`, 
         inline: false 
       },
       { 
@@ -77,7 +77,7 @@ function createHelpPages(prefix) {
         inline: false 
       }
     )
-    .setFooter({ text: `Page 1 of 3 • Current prefix: ${prefix}` })
+    .setFooter({ text: `Page 1 of 4 • Current prefix: ${prefix}` })
     .setTimestamp());
 
   // Page 2: Statistics Commands
@@ -102,6 +102,11 @@ function createHelpPages(prefix) {
         inline: false 
       },
       { 
+        name: `\`${prefix}stats monthly\``, 
+        value: 'Overview of the past 30 days with charts', 
+        inline: false 
+      },
+      { 
         name: `\`${prefix}stats members\``, 
         value: 'Member growth and retention statistics', 
         inline: false 
@@ -109,6 +114,11 @@ function createHelpPages(prefix) {
       { 
         name: `\`${prefix}stats activity\``, 
         value: 'Server engagement metrics and charts', 
+        inline: false 
+      },
+      { 
+        name: `\`${prefix}stats leaderboard\``, 
+        value: `Top message senders on the server\n**Usage:** \`${prefix}stats leaderboard [period] [limit]\`\n**Periods:** total, daily, weekly, monthly (default: total)\n**Limit:** 1-25 users (default: 10)\n**Example:** \`${prefix}stats leaderboard weekly 15\``, 
         inline: false 
       }
     )
@@ -174,13 +184,33 @@ function createHelpPages(prefix) {
         inline: false 
       },
       { 
-        name: '� Statistics Tracking', 
-        value: 'Automatic tracking of joins, leaves, messages, voice\n30-day retention with daily resets at midnight UTC', 
+        name: '💬 Message Requirements', 
+        value: 'Set minimum message count for giveaway entry (slash command only)\nRequires users to be active before participating', 
         inline: false 
       },
       { 
-        name: '� Data Persistence', 
-        value: 'All data stored on GitHub automatically\nGiveaways: 7 days, Statistics: 30 days', 
+        name: '⏱️ Live Countdown Timer', 
+        value: 'Giveaway embeds update automatically every 60 seconds\nShows remaining time until the giveaway ends', 
+        inline: false 
+      },
+      { 
+        name: '📊 Statistics Tracking', 
+        value: 'Automatic tracking of joins, leaves, messages, voice\nUser messages tracked: total, daily, weekly, monthly', 
+        inline: false 
+      },
+      { 
+        name: '🏅 Message Leaderboards', 
+        value: 'View top message senders by total, daily, weekly, or monthly\nTrack active members and engagement levels', 
+        inline: false 
+      },
+      { 
+        name: '🔄 Counter Resets', 
+        value: 'Daily: Midnight UTC • Weekly: Monday midnight UTC • Monthly: 1st midnight UTC\n**Total message count never resets** - only period counters', 
+        inline: false 
+      },
+      { 
+        name: '💾 Data Persistence', 
+        value: 'All data stored in MongoDB Atlas automatically\nGiveaways: 7 days, Statistics: 30 days', 
         inline: false 
       },
       { 

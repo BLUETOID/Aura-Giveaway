@@ -274,6 +274,18 @@ class StatisticsManager {
     }
   }
 
+  async getMonthlyStats(guildId) {
+    try {
+      const stats = await this.getGuildStats(guildId);
+      if (!stats) return [];
+
+      return stats.getLastNDaysStats(30);
+    } catch (error) {
+      console.error('❌ Error fetching monthly stats:', error.message);
+      return [];
+    }
+  }
+
   async getTodayStats(guildId) {
     try {
       const stats = await this.getGuildStats(guildId);
