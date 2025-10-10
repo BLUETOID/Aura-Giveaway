@@ -3,7 +3,7 @@ const { EmbedBuilder } = require('discord.js');
 module.exports = {
   name: 'stats',
   description: 'View server statistics',
-  usage: 'stats [overview|daily|weekly|members|activity]',
+  usage: 'stats [overview|daily|weekly|members|activity|leaderboard]',
   permissions: ['ManageGuild'],
 
   async execute(message, args, { statsManager }) {
@@ -33,8 +33,12 @@ module.exports = {
       case 'activity':
         await handleActivity(message, statsManager);
         break;
+      case 'leaderboard':
+      case 'lb':
+        await handleLeaderboard(message, args, statsManager);
+        break;
       default:
-        await message.reply(`❌ Invalid subcommand. Use: \`overview\`, \`daily\`, \`weekly\`, \`members\`, or \`activity\``);
+        await message.reply(`❌ Invalid subcommand. Use: \`overview\`, \`daily\`, \`weekly\`, \`members\`, \`activity\`, or \`leaderboard\``);
     }
   },
 };
@@ -370,4 +374,69 @@ function createMiniChart(data) {
     const index = Math.min(Math.floor((value / max) * bars.length), bars.length - 1);
     return bars[index];
   }).join('');
+}
+
+async function handleLeaderboard(message, args, statsManager) {
+  // Parse arguments: !stats leaderboard [period] [limit]
+  const period = args[1]?.toLowerCase() || 'all';
+  const limit = parseInt(args[2]) || 10;
+  
+  const validPeriods = ['all', 'monthly', 'weekly', 'daily'];
+  if (!validPeriods.includes(period)) {
+    return message.reply(`❌ Invalid period. Use: \`all\`, \`monthly\`, \`weekly\`, or \`daily\`\n**Usage:** \`!stats leaderboard [period] [limit]\``);
+  }
+
+  if (limit < 1 || limit > 25) {
+    return message.reply('❌ Limit must be between 1 and 25.');
+  }
+
+  try {
+    const leaderboard = await statsManager.getMessageLeaderboard(
+      message.guild.id,
+      limit,
+      period
+    );
+    
+    if (leaderboard.length === 0) {
+      return message.reply('📊 No message data available for the selected period.');
+    }
+
+    const periodNames = {
+      all: 'All Time',
+      monthly: 'This Month',
+      weekly: 'This Week',
+      daily: 'Today'
+    };
+
+    const embed = new EmbedBuilder()
+      .setColor('#ffd700')
+      .setTitle(`🏆 Message Leaderboard - ${periodNames[period]}`)
+      .setDescription('Top message senders in this server')
+      .setTimestamp();
+
+    let description = '';
+    leaderboard.forEach((user, index) => {
+      const medal = 
+        index === 0 ? '🥇' : 
+        index === 1 ? '🥈' : 
+        index === 2 ? '🥉' : 
+        `**${index + 1}.**`;
+      
+      const lastActive = user.lastActive ? 
+        `<t:${Math.floor(user.lastActive.getTime() / 1000)}:R>` : 
+        'Unknown';
+        
+      description += `${medal} **${user.username}** - **${user.messages.toLocaleString()}** messages\n`;
+      description += `└ Last active: ${lastActive}\n\n`;
+    });
+
+    embed.setDescription(description);
+    embed.setFooter({ text: `${message.guild.name} • ${periodNames[period]} Stats • Use: !stats leaderboard [all|monthly|weekly|daily] [limit]` });
+    
+    await message.reply({ embeds: [embed] });
+    
+  } catch (error) {
+    console.error('Error in leaderboard:', error);
+    await message.reply('❌ Error loading leaderboard.');
+  }
 }
