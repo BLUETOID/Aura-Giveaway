@@ -156,10 +156,69 @@ async function handleDaily(message, statsManager) {
         inline: true
       }
     )
-    .setFooter({ text: `${guild.name} • Data updates in real-time` })
+    .setFooter({ text: `${guild.name} • Data updates in real-time • Click button for chart view` })
     .setTimestamp();
 
-  await message.reply({ embeds: [embed] });
+  // Create button to view chart
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`stats_chart_daily_${message.author.id}`)
+        .setLabel('📊 Generate Visual Chart')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+  const reply = await message.reply({ embeds: [embed], components: [row] });
+
+  // Create collector for button
+  const collector = reply.createMessageComponentCollector({ time: 300000 });
+
+  collector.on('collect', async i => {
+    if (i.user.id !== message.author.id) {
+      return i.reply({ content: 'This button is not for you!', ephemeral: true });
+    }
+
+    if (i.customId.startsWith('stats_chart_daily')) {
+      await i.deferUpdate();
+
+      try {
+        const hourlyData = await statsManager.getHourlyActivity(guildId, 24);
+        const activeMembers = await statsManager.getActiveMembersCount(guildId, 1);
+        
+        const imageData = {
+          subtitle: `Daily Stats - ${todayStats.date}`,
+          totalMessages: todayStats.messages,
+          totalVoice: voiceHours,
+          peakHour: hourlyData.reduce((max, h) => h.messages > max.messages ? h : max, hourlyData[0]).hour,
+          activeMembers: activeMembers,
+          hourlyData: hourlyData.map(h => ({
+            label: h.hour,
+            messages: h.messages
+          }))
+        };
+
+        const imageBuffer = await canvasGenerator.generateDailyChart(imageData);
+        const attachment = new AttachmentBuilder(imageBuffer, { name: 'daily-stats.png' });
+
+        await i.followUp({ files: [attachment], ephemeral: false });
+      } catch (error) {
+        console.error('Error generating chart:', error);
+        await i.followUp({ content: '❌ Failed to generate chart. Please try again later.', ephemeral: true });
+      }
+    }
+  });
+
+  collector.on('end', () => {
+    const disabledRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('stats_chart_daily_disabled')
+          .setLabel('📊 Generate Visual Chart')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(true)
+      );
+    reply.edit({ components: [disabledRow] }).catch(() => {});
+  });
 }
 
 async function handleWeekly(message, statsManager) {
@@ -224,10 +283,69 @@ async function handleWeekly(message, statsManager) {
         inline: false
       }
     )
-    .setFooter({ text: 'Weekly statistics • Last 7 days' })
+    .setFooter({ text: 'Weekly statistics • Last 7 days • Click button for chart view' })
     .setTimestamp();
 
-  await message.reply({ embeds: [embed] });
+  // Create button to view chart
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`stats_chart_weekly_${message.author.id}`)
+        .setLabel('📊 Generate Visual Chart')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+  const reply = await message.reply({ embeds: [embed], components: [row] });
+
+  // Create collector for button
+  const collector = reply.createMessageComponentCollector({ time: 300000 });
+
+  collector.on('collect', async i => {
+    if (i.user.id !== message.author.id) {
+      return i.reply({ content: 'This button is not for you!', ephemeral: true });
+    }
+
+    if (i.customId.startsWith('stats_chart_weekly')) {
+      await i.deferUpdate();
+
+      try {
+        const peakDay = weeklyData.reduce((max, d) => d.messages > max.messages ? d : max, weeklyData[0]);
+        
+        const imageData = {
+          subtitle: 'Last 7 Days',
+          avgMessages: avgMessages,
+          avgVoice: parseFloat(avgVoiceHours),
+          totalMessages: totalMessages,
+          peakDay: peakDay.date,
+          dailyData: weeklyData.map(d => ({
+            label: new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }),
+            messages: d.messages,
+            voice: d.voiceMinutes / 60
+          }))
+        };
+
+        const imageBuffer = await canvasGenerator.generateWeeklyChart(imageData);
+        const attachment = new AttachmentBuilder(imageBuffer, { name: 'weekly-stats.png' });
+
+        await i.followUp({ files: [attachment], ephemeral: false });
+      } catch (error) {
+        console.error('Error generating chart:', error);
+        await i.followUp({ content: '❌ Failed to generate chart. Please try again later.', ephemeral: true });
+      }
+    }
+  });
+
+  collector.on('end', () => {
+    const disabledRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`stats_chart_weekly_disabled`)
+          .setLabel('📊 Generate Visual Chart')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(true)
+      );
+    reply.edit({ components: [disabledRow] }).catch(() => {});
+  });
 }
 
 async function handleMonthly(message, statsManager) {
@@ -295,10 +413,68 @@ async function handleMonthly(message, statsManager) {
         inline: false
       }
     )
-    .setFooter({ text: 'Monthly statistics • Last 30 days' })
+    .setFooter({ text: 'Monthly statistics • Last 30 days • Click button for chart view' })
     .setTimestamp();
 
-  await message.reply({ embeds: [embed] });
+  // Create button to view chart
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`stats_chart_monthly_${message.author.id}`)
+        .setLabel('📊 Generate Visual Chart')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+  const reply = await message.reply({ embeds: [embed], components: [row] });
+
+  // Create collector for button
+  const collector = reply.createMessageComponentCollector({ time: 300000 });
+
+  collector.on('collect', async i => {
+    if (i.user.id !== message.author.id) {
+      return i.reply({ content: 'This button is not for you!', ephemeral: true });
+    }
+
+    if (i.customId.startsWith('stats_chart_monthly')) {
+      await i.deferUpdate();
+
+      try {
+        const bestDay = monthlyData.reduce((max, d) => d.messages > max.messages ? d : max, monthlyData[0]);
+        
+        const imageData = {
+          subtitle: 'Last 30 Days',
+          totalMessages: totalMessages,
+          totalVoice: totalVoiceMinutes / 60,
+          avgMessages: avgMessages,
+          bestDay: bestDay.date,
+          dailyData: monthlyData.slice(0, 30).map(d => ({
+            date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            messages: d.messages
+          }))
+        };
+
+        const imageBuffer = await canvasGenerator.generateMonthlyChart(imageData);
+        const attachment = new AttachmentBuilder(imageBuffer, { name: 'monthly-stats.png' });
+
+        await i.followUp({ files: [attachment], ephemeral: false });
+      } catch (error) {
+        console.error('Error generating chart:', error);
+        await i.followUp({ content: '❌ Failed to generate chart. Please try again later.', ephemeral: true });
+      }
+    }
+  });
+
+  collector.on('end', () => {
+    const disabledRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('stats_chart_monthly_disabled')
+          .setLabel('📊 Generate Visual Chart')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(true)
+      );
+    reply.edit({ components: [disabledRow] }).catch(() => {});
+  });
 }
 
 async function handleMembers(message, statsManager) {
@@ -366,10 +542,70 @@ async function handleMembers(message, statsManager) {
         inline: false
       }
     )
-    .setFooter({ text: 'Member statistics • Updated in real-time' })
+    .setFooter({ text: 'Member statistics • Updated in real-time • Click button for chart view' })
     .setTimestamp();
 
-  await message.reply({ embeds: [embed] });
+  // Create button to view chart
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`stats_chart_members_${message.author.id}`)
+        .setLabel('📊 Generate Visual Chart')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+  const reply = await message.reply({ embeds: [embed], components: [row] });
+
+  // Create collector for button
+  const collector = reply.createMessageComponentCollector({ time: 300000 });
+
+  collector.on('collect', async i => {
+    if (i.user.id !== message.author.id) {
+      return i.reply({ content: 'This button is not for you!', ephemeral: true });
+    }
+
+    if (i.customId.startsWith('stats_chart_members')) {
+      await i.deferUpdate();
+
+      try {
+        const imageData = {
+          subtitle: 'Last 7 Days',
+          currentMembers: guild.memberCount,
+          netGrowth: netGrowth,
+          totalJoins: totalJoins,
+          totalLeaves: totalLeaves,
+          dailyData: weeklyData.map(d => {
+            return {
+              date: new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }),
+              members: guild.memberCount,
+              joins: d.joins,
+              leaves: d.leaves
+            };
+          })
+        };
+
+        const imageBuffer = await canvasGenerator.generateMemberChart(imageData);
+        const attachment = new AttachmentBuilder(imageBuffer, { name: 'member-stats.png' });
+
+        await i.followUp({ files: [attachment], ephemeral: false });
+      } catch (error) {
+        console.error('Error generating chart:', error);
+        await i.followUp({ content: '❌ Failed to generate chart. Please try again later.', ephemeral: true });
+      }
+    }
+  });
+
+  collector.on('end', () => {
+    const disabledRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('stats_chart_members_disabled')
+          .setLabel('📊 Generate Visual Chart')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(true)
+      );
+    reply.edit({ components: [disabledRow] }).catch(() => {});
+  });
 }
 
 async function handleActivity(message, statsManager) {

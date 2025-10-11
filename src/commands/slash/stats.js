@@ -210,7 +210,7 @@ async function handleDaily(interaction, statsManager) {
     .addComponents(
       new ButtonBuilder()
         .setCustomId(`stats_chart_daily_${interaction.user.id}`)
-        .setLabel('📊')
+        .setLabel('📊 Generate Visual Chart')
         .setStyle(ButtonStyle.Primary)
     );
 
@@ -225,23 +225,32 @@ async function handleDaily(interaction, statsManager) {
     }
 
     if (i.customId.startsWith('stats_chart_daily')) {
-      await i.deferReply({ ephemeral: true });
+      await i.deferUpdate();
 
       try {
-        const chartUrl = chartGenerator.generateDailyChart(todayStats);
+        // Get hourly data
+        const hourlyData = await statsManager.getHourlyActivity(guildId, 24);
+        const activeMembers = await statsManager.getActiveMembersCount(guildId, 1);
+        
+        const imageData = {
+          subtitle: `Daily Stats - ${todayStats.date}`,
+          totalMessages: todayStats.messages,
+          totalVoice: voiceHours,
+          peakHour: hourlyData.reduce((max, h) => h.messages > max.messages ? h : max, hourlyData[0]).hour,
+          activeMembers: activeMembers,
+          hourlyData: hourlyData.map(h => ({
+            label: h.hour,
+            messages: h.messages
+          }))
+        };
 
-        const chartEmbed = new EmbedBuilder()
-          .setColor('#00D9FF')
-          .setTitle(`📊 Daily Activity Chart - ${todayStats.date}`)
-          .setDescription('Activity distribution for today')
-          .setImage(chartUrl)
-          .setFooter({ text: 'Note: Messages scaled down by 10x for better visualization' })
-          .setTimestamp();
+        const imageBuffer = await canvasGenerator.generateDailyChart(imageData);
+        const attachment = new AttachmentBuilder(imageBuffer, { name: 'daily-stats.png' });
 
-        await i.editReply({ embeds: [chartEmbed] });
+        await i.followUp({ files: [attachment], ephemeral: false });
       } catch (error) {
         console.error('Error generating chart:', error);
-        await i.editReply({ content: '❌ Failed to generate chart. Please try again later.' });
+        await i.followUp({ content: '❌ Failed to generate chart. Please try again later.', ephemeral: true });
       }
     }
   });
@@ -251,7 +260,7 @@ async function handleDaily(interaction, statsManager) {
       .addComponents(
         new ButtonBuilder()
           .setCustomId('stats_chart_daily_disabled')
-          .setLabel('📊')
+          .setLabel('📊 Generate Visual Chart')
           .setStyle(ButtonStyle.Primary)
           .setDisabled(true)
       );
@@ -281,7 +290,7 @@ async function handleWeekly(interaction, statsManager) {
   
   const embed = new EmbedBuilder()
     .setColor('#FFD700')
-    .setTitle(`📊`)
+    .setTitle(`📊 Weekly Statistics`)
     .setDescription(`Past 7 days overview for ${guild.name}`)
     .addFields(
       {
@@ -332,7 +341,7 @@ async function handleWeekly(interaction, statsManager) {
     .addComponents(
       new ButtonBuilder()
         .setCustomId(`stats_chart_weekly_${interaction.user.id}`)
-        .setLabel('📊 View Chart')
+        .setLabel('📊 Generate Visual Chart')
         .setStyle(ButtonStyle.Primary)
     );
 
@@ -347,33 +356,31 @@ async function handleWeekly(interaction, statsManager) {
     }
 
     if (i.customId.startsWith('stats_chart_weekly')) {
-      await i.deferReply({ ephemeral: true });
+      await i.deferUpdate();
 
       try {
-        // Generate chart URL
-        const activityChartUrl = chartGenerator.generateActivityChart(weeklyData);
-        const memberChartUrl = chartGenerator.generateMemberGrowthChart(weeklyData);
+        const peakDay = weeklyData.reduce((max, d) => d.messages > max.messages ? d : max, weeklyData[0]);
+        
+        const imageData = {
+          subtitle: 'Last 7 Days',
+          avgMessages: avgMessages,
+          avgVoice: parseFloat(avgVoiceHours),
+          totalMessages: totalMessages,
+          peakDay: peakDay.date,
+          dailyData: weeklyData.map(d => ({
+            label: new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }),
+            messages: d.messages,
+            voice: d.voiceMinutes / 60
+          }))
+        };
 
-        const chartEmbed1 = new EmbedBuilder()
-          .setColor('#FFD700')
-          .setTitle('📊 Weekly Activity Chart')
-          .setDescription('Message and voice activity over the past 7 days')
-          .setImage(activityChartUrl)
-          .setFooter({ text: 'Data visualization • Last 7 days' })
-          .setTimestamp();
+        const imageBuffer = await canvasGenerator.generateWeeklyChart(imageData);
+        const attachment = new AttachmentBuilder(imageBuffer, { name: 'weekly-stats.png' });
 
-        const chartEmbed2 = new EmbedBuilder()
-          .setColor('#FF6B6B')
-          .setTitle('👥 Member Growth Chart')
-          .setDescription('Joins vs leaves over the past 7 days')
-          .setImage(memberChartUrl)
-          .setFooter({ text: 'Member statistics • Last 7 days' })
-          .setTimestamp();
-
-        await i.editReply({ embeds: [chartEmbed1, chartEmbed2] });
+        await i.followUp({ files: [attachment], ephemeral: false });
       } catch (error) {
         console.error('Error generating chart:', error);
-        await i.editReply({ content: '❌ Failed to generate chart. Please try again later.' });
+        await i.followUp({ content: '❌ Failed to generate chart. Please try again later.', ephemeral: true });
       }
     }
   });
@@ -383,7 +390,7 @@ async function handleWeekly(interaction, statsManager) {
       .addComponents(
         new ButtonBuilder()
           .setCustomId(`stats_chart_weekly_disabled`)
-          .setLabel('📊')
+          .setLabel('📊 Generate Visual Chart')
           .setStyle(ButtonStyle.Primary)
           .setDisabled(true)
       );
@@ -413,7 +420,7 @@ async function handleMonthly(interaction, statsManager) {
   
   const embed = new EmbedBuilder()
     .setColor('#9B59B6')
-    .setTitle(`📊`)
+    .setTitle(`📊 Monthly Statistics`)
     .setDescription(`Past 30 days overview for ${guild.name}`)
     .addFields(
       {
@@ -456,10 +463,68 @@ async function handleMonthly(interaction, statsManager) {
         inline: false
       }
     )
-    .setFooter({ text: 'Monthly statistics • Last 30 days' })
+    .setFooter({ text: 'Monthly statistics • Last 30 days • Click button for chart view' })
     .setTimestamp();
 
-  await interaction.reply({ embeds: [embed] });
+  // Create button to view chart
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`stats_chart_monthly_${interaction.user.id}`)
+        .setLabel('📊 Generate Visual Chart')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+  const message = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
+
+  // Create collector for button
+  const collector = message.createMessageComponentCollector({ time: 300000 });
+
+  collector.on('collect', async i => {
+    if (i.user.id !== interaction.user.id) {
+      return i.reply({ content: 'This button is not for you!', ephemeral: true });
+    }
+
+    if (i.customId.startsWith('stats_chart_monthly')) {
+      await i.deferUpdate();
+
+      try {
+        const bestDay = monthlyData.reduce((max, d) => d.messages > max.messages ? d : max, monthlyData[0]);
+        
+        const imageData = {
+          subtitle: 'Last 30 Days',
+          totalMessages: totalMessages,
+          totalVoice: totalVoiceMinutes / 60,
+          avgMessages: avgMessages,
+          bestDay: bestDay.date,
+          dailyData: monthlyData.slice(0, 30).map(d => ({
+            date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            messages: d.messages
+          }))
+        };
+
+        const imageBuffer = await canvasGenerator.generateMonthlyChart(imageData);
+        const attachment = new AttachmentBuilder(imageBuffer, { name: 'monthly-stats.png' });
+
+        await i.followUp({ files: [attachment], ephemeral: false });
+      } catch (error) {
+        console.error('Error generating chart:', error);
+        await i.followUp({ content: '❌ Failed to generate chart. Please try again later.', ephemeral: true });
+      }
+    }
+  });
+
+  collector.on('end', () => {
+    const disabledRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('stats_chart_monthly_disabled')
+          .setLabel('📊 Generate Visual Chart')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(true)
+      );
+    message.edit({ components: [disabledRow] }).catch(() => {});
+  });
 }
 
 async function handleMembers(interaction, statsManager) {
@@ -528,10 +593,72 @@ async function handleMembers(interaction, statsManager) {
         inline: false
       }
     )
-    .setFooter({ text: 'Member statistics • Updated in real-time' })
+    .setFooter({ text: 'Member statistics • Updated in real-time • Click button for chart view' })
     .setTimestamp();
 
-  await interaction.reply({ embeds: [embed] });
+  // Create button to view chart
+  const row = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`stats_chart_members_${interaction.user.id}`)
+        .setLabel('📊 Generate Visual Chart')
+        .setStyle(ButtonStyle.Primary)
+    );
+
+  const message = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
+
+  // Create collector for button
+  const collector = message.createMessageComponentCollector({ time: 300000 });
+
+  collector.on('collect', async i => {
+    if (i.user.id !== interaction.user.id) {
+      return i.reply({ content: 'This button is not for you!', ephemeral: true });
+    }
+
+    if (i.customId.startsWith('stats_chart_members')) {
+      await i.deferUpdate();
+
+      try {
+        const imageData = {
+          subtitle: 'Last 7 Days',
+          currentMembers: guild.memberCount,
+          netGrowth: netGrowth,
+          totalJoins: totalJoins,
+          totalLeaves: totalLeaves,
+          dailyData: weeklyData.map(d => {
+            // Simulate member count (you may need to track this in your database)
+            const dayNet = d.joins - d.leaves;
+            return {
+              date: new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }),
+              members: guild.memberCount, // You'd ideally have historical data here
+              joins: d.joins,
+              leaves: d.leaves
+            };
+          })
+        };
+
+        const imageBuffer = await canvasGenerator.generateMemberChart(imageData);
+        const attachment = new AttachmentBuilder(imageBuffer, { name: 'member-stats.png' });
+
+        await i.followUp({ files: [attachment], ephemeral: false });
+      } catch (error) {
+        console.error('Error generating chart:', error);
+        await i.followUp({ content: '❌ Failed to generate chart. Please try again later.', ephemeral: true });
+      }
+    }
+  });
+
+  collector.on('end', () => {
+    const disabledRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('stats_chart_members_disabled')
+          .setLabel('📊 Generate Visual Chart')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(true)
+      );
+    message.edit({ components: [disabledRow] }).catch(() => {});
+  });
 }
 
 async function handleActivity(interaction, statsManager) {
