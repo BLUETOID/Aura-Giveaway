@@ -7,7 +7,7 @@ class ImageGenerator {
 
     async init() {
         if (!this.browser) {
-            this.browser = await puppeteer.launch({
+            const launchOptions = {
                 headless: true,
                 args: [
                     '--no-sandbox',
@@ -16,7 +16,14 @@ class ImageGenerator {
                     '--disable-gpu',
                     '--disable-software-rasterizer'
                 ]
-            });
+            };
+
+            // Use Chrome installed by Heroku buildpack if available
+            if (process.env.CHROME_BIN) {
+                launchOptions.executablePath = process.env.CHROME_BIN;
+            }
+
+            this.browser = await puppeteer.launch(launchOptions);
         }
     }
 
