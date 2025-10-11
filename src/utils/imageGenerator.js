@@ -19,8 +19,12 @@ class ImageGenerator {
             };
 
             // Use Chrome installed by Heroku buildpack if available
+            // The chrome-for-testing buildpack installs Chrome at this path
             if (process.env.CHROME_BIN) {
                 launchOptions.executablePath = process.env.CHROME_BIN;
+            } else if (process.env.DYNO) {
+                // On Heroku, the chrome-for-testing buildpack installs here
+                launchOptions.executablePath = '/app/.chrome-for-testing/chrome-linux64/chrome';
             }
 
             this.browser = await puppeteer.launch(launchOptions);
