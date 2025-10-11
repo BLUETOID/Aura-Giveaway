@@ -98,63 +98,32 @@ async function handleOverview(interaction, statsManager) {
   const memberCount = guild.memberCount;
   const onlineCount = guild.members.cache.filter(m => m.presence?.status !== 'offline').size;
   
-  // Calculate net growth
   const netGrowth = todayStats.joins - todayStats.leaves;
   const growthEmoji = netGrowth > 0 ? '📈' : netGrowth < 0 ? '📉' : '➖';
-  
-  // Format voice time
   const voiceHours = (todayStats.voiceMinutes / 60).toFixed(1);
-  
-  const embed = new EmbedBuilder()
-    .setColor('#5865F2')
-    .setTitle(`📊 ${guild.name} - Statistics Overview`)
-    .setDescription(`Today's server statistics at a glance`)
-    .addFields(
-      {
-        name: '👥 Members',
-        value: `Total: **${memberCount.toLocaleString()}**\n${growthEmoji} Net: ${netGrowth > 0 ? '+' : ''}${netGrowth} today`,
-        inline: true
-      },
-      {
-        name: '🟢 Online Now',
-        value: `Current: **${onlineCount}**\nPeak: **${todayStats.maxOnline}**`,
-        inline: true
-      },
-      {
-        name: '📅 Date',
-        value: `${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`,
-        inline: true
-      },
-      {
-        name: '📥 Joins Today',
-        value: `**${todayStats.joins}** members`,
-        inline: true
-      },
-      {
-        name: '📤 Leaves Today',
-        value: `**${todayStats.leaves}** members`,
-        inline: true
-      },
-      {
-        name: '💬 Messages',
-        value: `**${todayStats.messages.toLocaleString()}** sent`,
-        inline: true
-      },
-      {
-        name: '🎤 Voice Activity',
-        value: `**${voiceHours}** hours`,
-        inline: true
-      },
-      {
-        name: '📈 All-Time Stats',
-        value: `Total Joins: **${guildStats.totalStats.totalJoins.toLocaleString()}**\nTotal Messages: **${guildStats.totalStats.totalMessages.toLocaleString()}**`,
-        inline: true
-      }
-    )
-    .setFooter({ text: 'Statistics reset daily at midnight UTC' })
-    .setTimestamp();
 
-  await interaction.reply({ embeds: [embed] });
+  try {
+    // Generate overview stats image
+    const statsImageData = {
+      memberCount: memberCount,
+      onlineCount: onlineCount,
+      maxOnline: todayStats.maxOnline,
+      joins: todayStats.joins,
+      leaves: todayStats.leaves,
+      netGrowth: netGrowth,
+      growthEmoji: growthEmoji,
+      messages: todayStats.messages,
+      voiceHours: voiceHours
+    };
+
+    const statsImage = await canvasGenerator.generateOverviewStatsImage(statsImageData);
+    const attachment = new AttachmentBuilder(statsImage, { name: 'overview-stats.png' });
+
+    await interaction.reply({ files: [attachment] });
+  } catch (error) {
+    console.error('Error in handleOverview:', error);
+    await interaction.reply({ content: '❌ Error generating overview stats.', ephemeral: true });
+  }
 }
 
 async function handleDaily(interaction, statsManager) {
@@ -277,129 +246,119 @@ async function handleWeekly(interaction, statsManager) {
   const weeklyData = await statsManager.getWeeklyStats(guildId);
   const guild = interaction.guild;
   
-  // Calculate totals
   const totalJoins = weeklyData.reduce((sum, day) => sum + day.joins, 0);
   const totalLeaves = weeklyData.reduce((sum, day) => sum + day.leaves, 0);
   const totalMessages = weeklyData.reduce((sum, day) => sum + day.messages, 0);
   const totalVoiceMinutes = weeklyData.reduce((sum, day) => sum + day.voiceMinutes, 0);
   const netGrowth = totalJoins - totalLeaves;
   
-  // Create mini charts
-  const joinChart = createMiniChart(weeklyData.map(d => d.joins));
-  const messageChart = createMiniChart(weeklyData.map(d => d.messages));
-  
-  // Calculate averages
   const avgMessages = Math.round(totalMessages / 7);
   const avgVoiceHours = (totalVoiceMinutes / 60 / 7).toFixed(1);
-  
-  const embed = new EmbedBuilder()
-    .setColor('#FFD700')
-    .setTitle(`📊 Weekly Statistics`)
-    .setDescription(`Past 7 days overview for ${guild.name}`)
-    .addFields(
-      {
-        name: '👥 Member Growth',
-        value: [
-          `Joins: **${totalJoins}** ${joinChart}`,
-          `Leaves: **${totalLeaves}**`,
-          `Net: **${netGrowth > 0 ? '+' : ''}${netGrowth}** members`
-        ].join('\n'),
-        inline: false
-      },
-      {
-        name: '💬 Message Activity',
-        value: [
-          `Total: **${totalMessages.toLocaleString()}** ${messageChart}`,
-          `Daily Avg: **${avgMessages.toLocaleString()}**`,
-          `Peak Day: **${Math.max(...weeklyData.map(d => d.messages)).toLocaleString()}**`
-        ].join('\n'),
-        inline: false
-      },
-      {
-        name: '🎤 Voice Activity',
-        value: [
-          `Total: **${(totalVoiceMinutes / 60).toFixed(1)}** hours`,
-          `Daily Avg: **${avgVoiceHours}** hours`
-        ].join('\n'),
-        inline: true
-      },
-      {
-        name: '📈 Peak Online',
-        value: [
-          `Highest: **${Math.max(...weeklyData.map(d => d.maxOnline))}**`,
-          `Average: **${Math.round(weeklyData.reduce((sum, d) => sum + d.maxOnline, 0) / 7)}**`
-        ].join('\n'),
-        inline: true
-      },
-      {
-        name: '📅 Date Range',
-        value: `${weeklyData[0].date} to ${weeklyData[6].date}`,
-        inline: false
+  const peakMessages = Math.max(...weeklyData.map(d => d.messages));
+
+  try {
+    // Generate stats summary image
+    const statsImageData = {
+      totalJoins: totalJoins,
+      totalLeaves: totalLeaves,
+      netGrowth: netGrowth,
+      totalMessages: totalMessages,
+      avgMessages: avgMessages,
+      peakMessages: peakMessages,
+      totalVoice: (totalVoiceMinutes / 60).toFixed(1),
+      avgVoice: avgVoiceHours
+    };
+
+    const statsImage = await canvasGenerator.generateWeeklyStatsImage(statsImageData);
+    const attachment = new AttachmentBuilder(statsImage, { name: 'weekly-stats.png' });
+
+    // Create button to view graph
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`view_graph_weekly_${interaction.user.id}`)
+          .setLabel('� View Graph')
+          .setStyle(ButtonStyle.Success)
+      );
+
+    const message = await interaction.reply({ files: [attachment], components: [row], fetchReply: true });
+
+    // Button collector
+    const collector = message.createMessageComponentCollector({ time: 300000 });
+    let showingGraph = false;
+
+    collector.on('collect', async i => {
+      if (i.user.id !== interaction.user.id) {
+        return i.reply({ content: 'This button is not for you!', ephemeral: true });
       }
-    )
-    .setFooter({ text: 'Weekly statistics • Last 7 days • Click button for chart view' })
-    .setTimestamp();
 
-  // Create button to view chart
-  const row = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`stats_chart_weekly_${interaction.user.id}`)
-        .setLabel('📊 Generate Visual Chart')
-        .setStyle(ButtonStyle.Primary)
-    );
-
-  const message = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
-
-  // Create collector for button
-  const collector = message.createMessageComponentCollector({ time: 300000 }); // 5 minutes
-
-  collector.on('collect', async i => {
-    if (i.user.id !== interaction.user.id) {
-      return i.reply({ content: 'This button is not for you!', ephemeral: true });
-    }
-
-    if (i.customId.startsWith('stats_chart_weekly')) {
       await i.deferUpdate();
 
       try {
-        const peakDay = weeklyData.reduce((max, d) => d.messages > max.messages ? d : max, weeklyData[0]);
-        
-        const imageData = {
-          subtitle: 'Last 7 Days',
-          avgMessages: avgMessages,
-          avgVoice: parseFloat(avgVoiceHours),
-          totalMessages: totalMessages,
-          peakDay: peakDay.date,
-          dailyData: weeklyData.map(d => ({
-            label: new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }),
-            messages: d.messages,
-            voice: d.voiceMinutes / 60
-          }))
-        };
+        if (!showingGraph) {
+          // Show graph
+          const peakDay = weeklyData.reduce((max, d) => d.messages > max.messages ? d : max, weeklyData[0]);
+          
+          const graphData = {
+            subtitle: 'Last 7 Days',
+            avgMessages: avgMessages,
+            avgVoice: parseFloat(avgVoiceHours),
+            totalMessages: totalMessages,
+            peakDay: peakDay.date,
+            dailyData: weeklyData.map(d => ({
+              label: new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }),
+              messages: d.messages,
+              voice: d.voiceMinutes / 60
+            }))
+          };
 
-        const imageBuffer = await canvasGenerator.generateWeeklyChart(imageData);
-        const attachment = new AttachmentBuilder(imageBuffer, { name: 'weekly-stats.png' });
+          const graphImage = await canvasGenerator.generateWeeklyGraph(graphData);
+          const graphAttachment = new AttachmentBuilder(graphImage, { name: 'weekly-graph.png' });
 
-        await i.followUp({ files: [attachment], ephemeral: false });
+          const graphRow = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder()
+                .setCustomId(`view_stats_weekly_${interaction.user.id}`)
+                .setLabel('📊 View Stats')
+                .setStyle(ButtonStyle.Primary)
+            );
+
+          await i.editReply({ files: [graphAttachment], components: [graphRow] });
+          showingGraph = true;
+        } else {
+          // Show stats again
+          const statsRow = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder()
+                .setCustomId(`view_graph_weekly_${interaction.user.id}`)
+                .setLabel('📈 View Graph')
+                .setStyle(ButtonStyle.Success)
+            );
+
+          await i.editReply({ files: [attachment], components: [statsRow] });
+          showingGraph = false;
+        }
       } catch (error) {
-        console.error('Error generating chart:', error);
-        await i.followUp({ content: '❌ Failed to generate chart. Please try again later.', ephemeral: true });
+        console.error('Error toggling view:', error);
+        await i.followUp({ content: '❌ Failed to switch view. Please try again.', ephemeral: true });
       }
-    }
-  });
+    });
 
-  collector.on('end', () => {
-    const disabledRow = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`stats_chart_weekly_disabled`)
-          .setLabel('📊 Generate Visual Chart')
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(true)
-      );
-    message.edit({ components: [disabledRow] }).catch(() => {});
-  });
+    collector.on('end', () => {
+      const disabledRow = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('disabled')
+            .setLabel(showingGraph ? '📊 View Stats' : '📈 View Graph')
+            .setStyle(showingGraph ? ButtonStyle.Primary : ButtonStyle.Success)
+            .setDisabled(true)
+        );
+      message.edit({ components: [disabledRow] }).catch(() => {});
+    });
+  } catch (error) {
+    console.error('Error in handleWeekly:', error);
+    await interaction.reply({ content: '❌ Error generating weekly stats.', ephemeral: true });
+  }
 }
 
 async function handleMonthly(interaction, statsManager) {
@@ -407,130 +366,126 @@ async function handleMonthly(interaction, statsManager) {
   const monthlyData = await statsManager.getMonthlyStats(guildId);
   const guild = interaction.guild;
   
-  // Calculate totals
   const totalJoins = monthlyData.reduce((sum, day) => sum + day.joins, 0);
   const totalLeaves = monthlyData.reduce((sum, day) => sum + day.leaves, 0);
   const totalMessages = monthlyData.reduce((sum, day) => sum + day.messages, 0);
   const totalVoiceMinutes = monthlyData.reduce((sum, day) => sum + day.voiceMinutes, 0);
   const netGrowth = totalJoins - totalLeaves;
   
-  // Create mini charts
-  const joinChart = createMiniChart(monthlyData.slice(0, 30).map(d => d.joins));
-  const messageChart = createMiniChart(monthlyData.slice(0, 30).map(d => d.messages));
-  
-  // Calculate averages
   const avgMessages = Math.round(totalMessages / 30);
   const avgVoiceHours = (totalVoiceMinutes / 60 / 30).toFixed(1);
-  
-  const embed = new EmbedBuilder()
-    .setColor('#9B59B6')
-    .setTitle(`📊 Monthly Statistics`)
-    .setDescription(`Past 30 days overview for ${guild.name}`)
-    .addFields(
-      {
-        name: '👥 Member Growth',
-        value: [
-          `Joins: **${totalJoins}** ${joinChart}`,
-          `Leaves: **${totalLeaves}**`,
-          `Net: **${netGrowth > 0 ? '+' : ''}${netGrowth}** members`
-        ].join('\n'),
-        inline: false
-      },
-      {
-        name: '💬 Message Activity',
-        value: [
-          `Total: **${totalMessages.toLocaleString()}** ${messageChart}`,
-          `Daily Avg: **${avgMessages.toLocaleString()}**`,
-          `Peak Day: **${Math.max(...monthlyData.map(d => d.messages)).toLocaleString()}**`
-        ].join('\n'),
-        inline: false
-      },
-      {
-        name: '🎤 Voice Activity',
-        value: [
-          `Total: **${(totalVoiceMinutes / 60).toFixed(1)}** hours`,
-          `Daily Avg: **${avgVoiceHours}** hours`
-        ].join('\n'),
-        inline: true
-      },
-      {
-        name: '📈 Peak Online',
-        value: [
-          `Highest: **${Math.max(...monthlyData.map(d => d.maxOnline))}**`,
-          `Average: **${Math.round(monthlyData.reduce((sum, d) => sum + d.maxOnline, 0) / 30)}**`
-        ].join('\n'),
-        inline: true
-      },
-      {
-        name: '📅 Date Range',
-        value: `${monthlyData[0].date} to ${monthlyData[29].date}`,
-        inline: false
+  const peakMessages = Math.max(...monthlyData.map(d => d.messages));
+
+  try {
+    // Generate stats summary image
+    const statsImageData = {
+      totalJoins: totalJoins,
+      totalLeaves: totalLeaves,
+      netGrowth: netGrowth,
+      totalMessages: totalMessages,
+      avgMessages: avgMessages,
+      peakMessages: peakMessages,
+      totalVoice: (totalVoiceMinutes / 60).toFixed(1),
+      avgVoice: avgVoiceHours
+    };
+
+    const statsImage = await canvasGenerator.generateMonthlyStatsImage(statsImageData);
+    const attachment = new AttachmentBuilder(statsImage, { name: 'monthly-stats.png' });
+
+    // Create button to view graph
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`view_graph_monthly_${interaction.user.id}`)
+          .setLabel('� View Graph')
+          .setStyle(ButtonStyle.Success)
+      );
+
+    const message = await interaction.reply({ files: [attachment], components: [row], fetchReply: true });
+
+    // Button collector
+    const collector = message.createMessageComponentCollector({ time: 300000 });
+    let showingGraph = false;
+
+    collector.on('collect', async i => {
+      if (i.user.id !== interaction.user.id) {
+        return i.reply({ content: 'This button is not for you!', ephemeral: true });
       }
-    )
-    .setFooter({ text: 'Monthly statistics • Last 30 days • Click button for chart view' })
-    .setTimestamp();
 
-  // Create button to view chart
-  const row = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`stats_chart_monthly_${interaction.user.id}`)
-        .setLabel('📊 Generate Visual Chart')
-        .setStyle(ButtonStyle.Primary)
-    );
-
-  const message = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
-
-  // Create collector for button
-  const collector = message.createMessageComponentCollector({ time: 300000 });
-
-  collector.on('collect', async i => {
-    if (i.user.id !== interaction.user.id) {
-      return i.reply({ content: 'This button is not for you!', ephemeral: true });
-    }
-
-    if (i.customId.startsWith('stats_chart_monthly')) {
       await i.deferUpdate();
 
       try {
-        const bestDay = monthlyData.reduce((max, d) => d.messages > max.messages ? d : max, monthlyData[0]);
-        
-        const imageData = {
-          subtitle: 'Last 30 Days',
-          totalMessages: totalMessages,
-          totalVoice: totalVoiceMinutes / 60,
-          avgMessages: avgMessages,
-          bestDay: bestDay.date,
-          dailyData: monthlyData.slice(0, 30).map(d => ({
-            date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            messages: d.messages
-          }))
-        };
+        if (!showingGraph) {
+          // Show graph
+          const bestDay = monthlyData.reduce((max, d) => d.messages > max.messages ? d : max, monthlyData[0]);
+          
+          const graphData = {
+            subtitle: 'Last 30 Days',
+            totalMessages: totalMessages,
+            totalVoice: totalVoiceMinutes / 60,
+            avgMessages: avgMessages,
+            bestDay: bestDay.date,
+            dailyData: monthlyData.slice(0, 30).map(d => ({
+              date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              messages: d.messages
+            }))
+          };
 
-        const imageBuffer = await canvasGenerator.generateMonthlyChart(imageData);
-        const attachment = new AttachmentBuilder(imageBuffer, { name: 'monthly-stats.png' });
+          const graphImage = await canvasGenerator.generateMonthlyGraph(graphData);
+          const graphAttachment = new AttachmentBuilder(graphImage, { name: 'monthly-graph.png' });
 
-        await i.followUp({ files: [attachment], ephemeral: false });
+          const graphRow = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder()
+                .setCustomId(`view_stats_monthly_${interaction.user.id}`)
+                .setLabel('📊 View Stats')
+                .setStyle(ButtonStyle.Primary)
+            );
+
+          await i.editReply({ files: [graphAttachment], components: [graphRow] });
+          showingGraph = true;
+        } else {
+          // Show stats again
+          const statsRow = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder()
+                .setCustomId(`view_graph_monthly_${interaction.user.id}`)
+                .setLabel('📈 View Graph')
+                .setStyle(ButtonStyle.Success)
+            );
+
+          await i.editReply({ files: [attachment], components: [statsRow] });
+          showingGraph = false;
+        }
       } catch (error) {
-        console.error('Error generating chart:', error);
-        await i.followUp({ content: '❌ Failed to generate chart. Please try again later.', ephemeral: true });
+        console.error('Error toggling view:', error);
+        await i.followUp({ content: '❌ Failed to switch view. Please try again.', ephemeral: true });
       }
-    }
-  });
+    });
 
-  collector.on('end', () => {
-    const disabledRow = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('stats_chart_monthly_disabled')
-          .setLabel('📊 Generate Visual Chart')
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(true)
-      );
-    message.edit({ components: [disabledRow] }).catch(() => {});
-  });
+    collector.on('end', () => {
+      const disabledRow = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('disabled')
+            .setLabel(showingGraph ? '📊 View Stats' : '📈 View Graph')
+            .setStyle(showingGraph ? ButtonStyle.Primary : ButtonStyle.Success)
+            .setDisabled(true)
+        );
+      message.edit({ components: [disabledRow] }).catch(() => {});
+    });
+  } catch (error) {
+    console.error('Error in handleMonthly:', error);
+    await interaction.reply({ content: '❌ Error generating monthly stats.', ephemeral: true });
+  }
 }
 
+async function handleMembers(interaction, statsManager) {
+  const guildId = interaction.guildId;
+  const weeklyData = await statsManager.getWeeklyStats(guildId);
+  const guildStats = await statsManager.getGuildStats(guildId);
+  const guild = interaction.guild;
+  
 async function handleMembers(interaction, statsManager) {
   const guildId = interaction.guildId;
   const weeklyData = await statsManager.getWeeklyStats(guildId);
@@ -541,116 +496,115 @@ async function handleMembers(interaction, statsManager) {
   const totalLeaves = weeklyData.reduce((sum, day) => sum + day.leaves, 0);
   const netGrowth = totalJoins - totalLeaves;
   const growthRate = ((netGrowth / guild.memberCount) * 100).toFixed(2);
-  
-  // Day-by-day breakdown
-  const dayBreakdown = weeklyData.map(day => {
-    const net = day.joins - day.leaves;
-    const emoji = net > 0 ? '📈' : net < 0 ? '📉' : '➖';
-    const dateObj = new Date(day.date);
-    const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    return `${emoji} ${dayName}: +${day.joins} / -${day.leaves} (${net > 0 ? '+' : ''}${net})`;
-  }).join('\n');
-  
-  const embed = new EmbedBuilder()
-    .setColor('#FF6B6B')
-    .setTitle(`👥 Member Growth Statistics`)
-    .setDescription(`Membership trends for ${guild.name}`)
-    .addFields(
-      {
-        name: '📊 Current Status',
-        value: [
-          `Total Members: **${guild.memberCount.toLocaleString()}**`,
-          `Growth Rate: **${growthRate}%** (7 days)`,
-          `Net Change: **${netGrowth > 0 ? '+' : ''}${netGrowth}**`
-        ].join('\n'),
-        inline: false
-      },
-      {
-        name: '📥 Join Statistics (7 days)',
-        value: [
-          `Total Joins: **${totalJoins}**`,
-          `Daily Average: **${Math.round(totalJoins / 7)}**`,
-          `Best Day: **${Math.max(...weeklyData.map(d => d.joins))}**`
-        ].join('\n'),
-        inline: true
-      },
-      {
-        name: '📤 Leave Statistics (7 days)',
-        value: [
-          `Total Leaves: **${totalLeaves}**`,
-          `Daily Average: **${Math.round(totalLeaves / 7)}**`,
-          `Retention: **${(((totalJoins - totalLeaves) / totalJoins * 100) || 0).toFixed(1)}%**`
-        ].join('\n'),
-        inline: true
-      },
-      {
-        name: '📅 Daily Breakdown',
-        value: dayBreakdown,
-        inline: false
-      },
-      {
-        name: '🏆 All-Time Statistics',
-        value: [
-          `Total Joins: **${guildStats.totalStats.totalJoins.toLocaleString()}**`,
-          `Total Leaves: **${guildStats.totalStats.totalLeaves.toLocaleString()}**`
-        ].join('\n'),
-        inline: false
+  const avgJoins = Math.round(totalJoins / 7);
+  const avgLeaves = Math.round(totalLeaves / 7);
+  const bestJoinDay = Math.max(...weeklyData.map(d => d.joins));
+  const retention = (((totalJoins - totalLeaves) / totalJoins * 100) || 0).toFixed(1);
+
+  try {
+    // Generate stats summary image
+    const statsImageData = {
+      currentMembers: guild.memberCount,
+      growthRate: growthRate,
+      netGrowth: netGrowth,
+      totalJoins: totalJoins,
+      avgJoins: avgJoins,
+      bestJoinDay: bestJoinDay,
+      totalLeaves: totalLeaves,
+      avgLeaves: avgLeaves,
+      retention: retention
+    };
+
+    const statsImage = await canvasGenerator.generateMemberStatsImage(statsImageData);
+    const attachment = new AttachmentBuilder(statsImage, { name: 'member-stats.png' });
+
+    // Create button to view graph
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`view_graph_members_${interaction.user.id}`)
+          .setLabel('� View Graph')
+          .setStyle(ButtonStyle.Success)
+      );
+
+    const message = await interaction.reply({ files: [attachment], components: [row], fetchReply: true });
+
+    // Button collector
+    const collector = message.createMessageComponentCollector({ time: 300000 });
+    let showingGraph = false;
+
+    collector.on('collect', async i => {
+      if (i.user.id !== interaction.user.id) {
+        return i.reply({ content: 'This button is not for you!', ephemeral: true });
       }
-    )
-    .setFooter({ text: 'Member statistics • Updated in real-time • Click button for chart view' })
-    .setTimestamp();
 
-  // Create button to view chart
-  const row = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`stats_chart_members_${interaction.user.id}`)
-        .setLabel('📊 Generate Visual Chart')
-        .setStyle(ButtonStyle.Primary)
-    );
-
-  const message = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
-
-  // Create collector for button
-  const collector = message.createMessageComponentCollector({ time: 300000 });
-
-  collector.on('collect', async i => {
-    if (i.user.id !== interaction.user.id) {
-      return i.reply({ content: 'This button is not for you!', ephemeral: true });
-    }
-
-    if (i.customId.startsWith('stats_chart_members')) {
       await i.deferUpdate();
 
       try {
-        const imageData = {
-          subtitle: 'Last 7 Days',
-          currentMembers: guild.memberCount,
-          netGrowth: netGrowth,
-          totalJoins: totalJoins,
-          totalLeaves: totalLeaves,
-          dailyData: weeklyData.map(d => {
-            // Simulate member count (you may need to track this in your database)
-            const dayNet = d.joins - d.leaves;
-            return {
+        if (!showingGraph) {
+          // Show graph
+          const graphData = {
+            subtitle: 'Last 7 Days',
+            currentMembers: guild.memberCount,
+            netGrowth: netGrowth,
+            totalJoins: totalJoins,
+            totalLeaves: totalLeaves,
+            dailyData: weeklyData.map(d => ({
               date: new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }),
-              members: guild.memberCount, // You'd ideally have historical data here
+              members: guild.memberCount,
               joins: d.joins,
               leaves: d.leaves
-            };
-          })
-        };
+            }))
+          };
 
-        const imageBuffer = await canvasGenerator.generateMemberChart(imageData);
-        const attachment = new AttachmentBuilder(imageBuffer, { name: 'member-stats.png' });
+          const graphImage = await canvasGenerator.generateMemberGraph(graphData);
+          const graphAttachment = new AttachmentBuilder(graphImage, { name: 'member-graph.png' });
 
-        await i.followUp({ files: [attachment], ephemeral: false });
+          const graphRow = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder()
+                .setCustomId(`view_stats_members_${interaction.user.id}`)
+                .setLabel('📊 View Stats')
+                .setStyle(ButtonStyle.Primary)
+            );
+
+          await i.editReply({ files: [graphAttachment], components: [graphRow] });
+          showingGraph = true;
+        } else {
+          // Show stats again
+          const statsRow = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder()
+                .setCustomId(`view_graph_members_${interaction.user.id}`)
+                .setLabel('📈 View Graph')
+                .setStyle(ButtonStyle.Success)
+            );
+
+          await i.editReply({ files: [attachment], components: [statsRow] });
+          showingGraph = false;
+        }
       } catch (error) {
-        console.error('Error generating chart:', error);
-        await i.followUp({ content: '❌ Failed to generate chart. Please try again later.', ephemeral: true });
+        console.error('Error toggling view:', error);
+        await i.followUp({ content: '❌ Failed to switch view. Please try again.', ephemeral: true });
       }
-    }
-  });
+    });
+
+    collector.on('end', () => {
+      const disabledRow = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('disabled')
+            .setLabel(showingGraph ? '📊 View Stats' : '📈 View Graph')
+            .setStyle(showingGraph ? ButtonStyle.Primary : ButtonStyle.Success)
+            .setDisabled(true)
+        );
+      message.edit({ components: [disabledRow] }).catch(() => {});
+    });
+  } catch (error) {
+    console.error('Error in handleMembers:', error);
+    await interaction.reply({ content: '❌ Error generating member stats.', ephemeral: true });
+  }
+}
 
   collector.on('end', () => {
     const disabledRow = new ActionRowBuilder()

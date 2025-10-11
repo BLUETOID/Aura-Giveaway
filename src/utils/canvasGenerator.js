@@ -122,6 +122,53 @@ class CanvasGenerator {
   }
 
   /**
+   * Generate overview stats summary image (text-based)
+   */
+  async generateOverviewStatsImage(data) {
+    const width = 800;
+    const height = 550;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(20, 20, width - 40, height - 40);
+    ctx.strokeStyle = '#404040';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(20, 20, width - 40, height - 40);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillText('📊 Statistics Overview', 50, 70);
+    ctx.fillStyle = '#999999';
+    ctx.font = '20px sans-serif';
+    ctx.fillText("Today's server statistics", 50, 105);
+
+    let y = 180;
+
+    // Row 1: Members, Online, Date
+    this.drawDarkStatBox(ctx, 50, y, 220, 90, '👥 Total Members', data.memberCount?.toLocaleString() || '0');
+    this.drawDarkStatBox(ctx, 300, y, 220, 90, '🟢 Online Now', data.onlineCount?.toString() || '0');
+    this.drawDarkStatBox(ctx, 550, y, 200, 90, '📅 Peak Online', data.maxOnline?.toString() || '0');
+    
+    y += 110;
+
+    // Row 2: Joins, Leaves, Messages
+    this.drawDarkStatBox(ctx, 50, y, 220, 90, '📥 Joins Today', data.joins?.toString() || '0');
+    this.drawDarkStatBox(ctx, 300, y, 220, 90, '📤 Leaves Today', data.leaves?.toString() || '0');
+    this.drawDarkStatBox(ctx, 550, y, 200, 90, `${data.growthEmoji || '➖'} Net Growth`, (data.netGrowth > 0 ? '+' : '') + (data.netGrowth || 0));
+    
+    y += 110;
+
+    // Row 3: Messages, Voice
+    this.drawDarkStatBox(ctx, 50, y, 340, 90, '💬 Messages Sent', data.messages?.toLocaleString() || '0');
+    this.drawDarkStatBox(ctx, 410, y, 340, 90, '🎤 Voice Activity', (data.voiceHours || '0') + ' hours');
+
+    return canvas.toBuffer('image/png');
+  }
+
+  /**
    * Generate daily stats summary image (text-based, replaces embed)
    */
   async generateDailyStatsImage(data) {
