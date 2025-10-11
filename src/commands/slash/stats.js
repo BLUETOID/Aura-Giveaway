@@ -1,6 +1,5 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const ChartGenerator = require('../../utils/charts');
-const imageGenerator = require('../../utils/imageGenerator');
 
 const chartGenerator = new ChartGenerator();
 
@@ -593,67 +592,10 @@ async function handleActivity(interaction, statsManager) {
         inline: false
       }
     )
-    .setFooter({ text: 'Activity statistics • Past 7 days • Click button for visual chart' })
+    .setFooter({ text: 'Activity statistics • Past 7 days' })
     .setTimestamp();
 
-  // Add button for image chart
-  const row = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('activity_image_chart')
-        .setLabel('📊 Generate Visual Chart')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🎨')
-    );
-
-  const response = await interaction.reply({ embeds: [embed], components: [row] });
-
-  // Button collector
-  const collector = response.createMessageComponentCollector({
-    filter: i => i.customId === 'activity_image_chart' && i.user.id === interaction.user.id,
-    time: 300000 // 5 minutes
-  });
-
-  collector.on('collect', async i => {
-    await i.deferUpdate();
-    
-    try {
-      // Get hourly data for the past 24 hours
-      const hourlyData = await statsManager.getHourlyActivity(guildId, 24);
-      
-      // Get active member count
-      const activeMembers = await statsManager.getActiveMembersCount(guildId, 7);
-      
-      // Prepare data for image generation
-      const imageData = {
-        title: 'Server Activity - Last 24 Hours',
-        subtitle: guild.name,
-        totalMessages: hourlyData.reduce((sum, h) => sum + h.messages, 0),
-        totalVoice: hourlyData.reduce((sum, h) => sum + h.voiceMinutes, 0) / 60,
-        peakHour: hourlyData.reduce((max, h) => h.messages > max.messages ? h : max, hourlyData[0]).hour,
-        activeMembers: activeMembers,
-        hourlyData: hourlyData.map(h => ({
-          label: h.hour,
-          messages: h.messages,
-          voice: h.voiceMinutes / 60
-        }))
-      };
-      
-      const imageBuffer = await imageGenerator.generateActivityCard(imageData);
-      const attachment = new AttachmentBuilder(imageBuffer, { name: 'activity.png' });
-      
-      await i.followUp({ files: [attachment], ephemeral: false });
-    } catch (error) {
-      console.error('Error generating activity chart:', error);
-      await i.followUp({ content: '❌ Error generating visual chart. Please try again.', ephemeral: true });
-    }
-  });
-
-  collector.on('end', () => {
-    // Disable button after timeout
-    row.components[0].setDisabled(true);
-    interaction.editReply({ embeds: [embed], components: [row] }).catch(() => {});
-  });
+  await interaction.reply({ embeds: [embed] });
 }
 
 function createProgressBar(current, max, length = 10) {

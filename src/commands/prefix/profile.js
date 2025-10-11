@@ -1,10 +1,9 @@
-const { AttachmentBuilder } = require('discord.js');
-const imageGenerator = require('../../utils/imageGenerator');
+const { EmbedBuilder } = require('discord.js');
 
 module.exports = {
   name: 'profile',
   aliases: ['card', 'rank'],
-  description: 'View your game-style profile card',
+  description: 'View your server profile and statistics',
   usage: '[user]',
   category: 'utility',
 
@@ -24,7 +23,7 @@ module.exports = {
       }
     }
 
-    const loadingMsg = await message.reply('🎮 Generating profile card...');
+    const loadingMsg = await message.reply('📊 Loading profile...');
 
     try {
       const member = await message.guild.members.fetch(targetUser.id).catch(() => null);
@@ -51,27 +50,36 @@ module.exports = {
       const xpNeeded = nextLevelXP - currentLevelXP;
       const progressPercent = Math.round((xpProgress / xpNeeded) * 100);
       
-      // Generate profile card image
-      const imageBuffer = await imageGenerator.generateProfileCard({
-        username: targetUser.username,
-        avatarUrl: targetUser.displayAvatarURL({ extension: 'png', size: 256 }),
-        level: level,
-        activityLevel: activityLevel.name,
-        activityEmoji: activityLevel.emoji,
-        xpProgress: Math.round(xpProgress),
-        xpNeeded: Math.round(xpNeeded),
-        progressPercent: progressPercent,
-        messageRank: leaderboardRank?.rank || 'N/A',
-        voiceRank: voiceRank?.rank || 'N/A'
-      });
+      // Create embed profile card
+      const embed = new EmbedBuilder()
+        .setColor(getActivityColorHex(activityLevel.name))
+        .setTitle(`${activityLevel.emoji} ${targetUser.username}'s Profile`)
+        .setThumbnail(targetUser.displayAvatarURL({ extension: 'png', size: 256 }))
+        .addFields(
+          { name: '📊 Level', value: `**${level}**`, inline: true },
+          { name: '🎯 Activity', value: `${activityLevel.name}`, inline: true },
+          { name: '⭐ XP Progress', value: `${progressPercent}%`, inline: true },
+          { name: '💬 Message Rank', value: `#${leaderboardRank?.rank || 'N/A'}`, inline: true },
+          { name: '🎤 Voice Rank', value: `#${voiceRank?.rank || 'N/A'}`, inline: true },
+          { name: '📈 Total Messages', value: `${userStats.messages.total.toLocaleString()}`, inline: true },
+          { name: '🔹 Experience', value: `${Math.round(xpProgress).toLocaleString()} / ${Math.round(xpNeeded).toLocaleString()} XP`, inline: false }
+        )
+        .setFooter({ text: `Gaming Aura • ${new Date().toLocaleDateString()}` })
+        .setTimestamp();
 
-      const attachment = new AttachmentBuilder(imageBuffer, { name: 'profile.png' });
+      // Add progress bar
+      const barLength = 20;
+      const filledBars = Math.round((progressPercent / 100) * barLength);
+      const emptyBars = barLength - filledBars;
+      const progressBar = '█'.repeat(filledBars) + '░'.repeat(emptyBars);
       
-      await loadingMsg.edit({ content: null, files: [attachment] });
+      embed.setDescription(`**XP Progress**\n\`${progressBar}\` ${progressPercent}%`);
+      
+      await loadingMsg.edit({ content: null, embeds: [embed] });
       
     } catch (error) {
       console.error('Error in profile command:', error);
-      await loadingMsg.edit('❌ Error generating profile.');
+      await loadingMsg.edit('❌ Error loading profile.');
     }
   },
 };
