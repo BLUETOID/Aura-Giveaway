@@ -94,6 +94,24 @@ class StatisticsManager {
           membersOnline: Array(24).fill(0)
         };
       }
+      
+      // Ensure arrays are properly initialized (handle corrupted data)
+      if (!Array.isArray(todayStats.hourlyActivity.messages) || 
+          todayStats.hourlyActivity.messages.length !== 24 ||
+          todayStats.hourlyActivity.messages.some(v => typeof v !== 'number')) {
+        todayStats.hourlyActivity.messages = Array(24).fill(0);
+      }
+      if (!Array.isArray(todayStats.hourlyActivity.voiceMinutes) || 
+          todayStats.hourlyActivity.voiceMinutes.length !== 24 ||
+          todayStats.hourlyActivity.voiceMinutes.some(v => typeof v !== 'number')) {
+        todayStats.hourlyActivity.voiceMinutes = Array(24).fill(0);
+      }
+      if (!Array.isArray(todayStats.hourlyActivity.membersOnline) || 
+          todayStats.hourlyActivity.membersOnline.length !== 24 ||
+          todayStats.hourlyActivity.membersOnline.some(v => typeof v !== 'number')) {
+        todayStats.hourlyActivity.membersOnline = Array(24).fill(0);
+      }
+      
       todayStats.hourlyActivity.messages[currentHour]++;
       
       // Track by channel
@@ -424,10 +442,28 @@ class StatisticsManager {
       if (recentDay && recentDay.hourlyActivity) {
         const result = [];
         for (let i = 0; i < Math.min(hours, 24); i++) {
+          // Handle corrupted data gracefully
+          let messages = 0;
+          let voiceMinutes = 0;
+          
+          try {
+            if (Array.isArray(recentDay.hourlyActivity.messages) && 
+                typeof recentDay.hourlyActivity.messages[i] === 'number') {
+              messages = recentDay.hourlyActivity.messages[i];
+            }
+            
+            if (Array.isArray(recentDay.hourlyActivity.voiceMinutes) && 
+                typeof recentDay.hourlyActivity.voiceMinutes[i] === 'number') {
+              voiceMinutes = recentDay.hourlyActivity.voiceMinutes[i];
+            }
+          } catch (error) {
+            console.warn(`⚠️ Error reading hourly data for hour ${i}:`, error.message);
+          }
+          
           result.push({
             hour: `${i}:00`,
-            messages: recentDay.hourlyActivity.messages[i] || 0,
-            voiceMinutes: recentDay.hourlyActivity.voice[i] || 0
+            messages: messages,
+            voiceMinutes: voiceMinutes
           });
         }
         return result;
