@@ -18,6 +18,9 @@ class StatisticsManager {
       return;
     }
 
+    // Clean up corrupted hourly activity data
+    await this.cleanCorruptedHourlyData();
+
     console.log('📊 Statistics Manager initialized successfully!');
   }
 
@@ -345,6 +348,35 @@ class StatisticsManager {
       return cleanedCount;
     } catch (error) {
       console.error('❌ Error cleaning up old stats:', error.message);
+      return 0;
+    }
+  }
+
+  async cleanCorruptedHourlyData() {
+    try {
+      console.log('🔧 Starting corrupted hourly data cleanup...');
+      
+      const allStats = await Statistics.find();
+      let fixedCount = 0;
+
+      for (const stats of allStats) {
+        const needsSave = stats.cleanCorruptedHourlyData();
+        if (needsSave) {
+          await stats.save();
+          fixedCount++;
+          console.log(`✅ Fixed corrupted data for guild ${stats.guildId}`);
+        }
+      }
+
+      if (fixedCount > 0) {
+        console.log(`🎉 Cleaned up corrupted data in ${fixedCount} statistics documents`);
+      } else {
+        console.log('✅ No corrupted data found');
+      }
+
+      return fixedCount;
+    } catch (error) {
+      console.error('❌ Error cleaning corrupted hourly data:', error.message);
       return 0;
     }
   }
