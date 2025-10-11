@@ -164,108 +164,112 @@ async function handleDaily(interaction, statsManager) {
   
   const voiceHours = (todayStats.voiceMinutes / 60).toFixed(1);
   const netGrowth = todayStats.joins - todayStats.leaves;
-  
-  // Create progress bars
-  const maxMessages = 1000;
-  const messageProgress = createProgressBar(todayStats.messages, maxMessages);
-  
-  const embed = new EmbedBuilder()
-    .setColor('#00D9FF')
-    .setTitle(`📅 Daily Statistics - ${todayStats.date}`)
-    .setDescription(`Detailed breakdown of today's activity`)
-    .addFields(
-      {
-        name: '👥 Member Activity',
-        value: [
-          `📥 Joins: **${todayStats.joins}**`,
-          `📤 Leaves: **${todayStats.leaves}**`,
-          `📊 Net Growth: **${netGrowth > 0 ? '+' : ''}${netGrowth}**`,
-          `🟢 Peak Online: **${todayStats.maxOnline}**`
-        ].join('\n'),
-        inline: false
-      },
-      {
-        name: '💬 Message Activity',
-        value: [
-          `Total: **${todayStats.messages.toLocaleString()}** messages`,
-          messageProgress,
-          `Avg: **${Math.round(todayStats.messages / 24)}** per hour`
-        ].join('\n'),
-        inline: false
-      },
-      {
-        name: '🎤 Voice Activity',
-        value: [
-          `Total: **${voiceHours}** hours`,
-          `Minutes: **${todayStats.voiceMinutes.toLocaleString()}**`
-        ].join('\n'),
-        inline: true
+  const avgMessages = Math.round(todayStats.messages / 24);
+
+  try {
+    // Generate stats summary image
+    const statsImageData = {
+      date: todayStats.date,
+      joins: todayStats.joins,
+      leaves: todayStats.leaves,
+      netGrowth: netGrowth,
+      maxOnline: todayStats.maxOnline,
+      totalMessages: todayStats.messages,
+      avgMessages: avgMessages,
+      voiceHours: voiceHours,
+      voiceMinutes: todayStats.voiceMinutes
+    };
+
+    const statsImage = await canvasGenerator.generateDailyStatsImage(statsImageData);
+    const attachment = new AttachmentBuilder(statsImage, { name: 'daily-stats.png' });
+
+    // Create button to view graph
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`view_graph_daily_${interaction.user.id}`)
+          .setLabel('� View Graph')
+          .setStyle(ButtonStyle.Success)
+      );
+
+    const message = await interaction.reply({ files: [attachment], components: [row], fetchReply: true });
+
+    // Button collector
+    const collector = message.createMessageComponentCollector({ time: 300000 });
+    let showingGraph = false;
+
+    collector.on('collect', async i => {
+      if (i.user.id !== interaction.user.id) {
+        return i.reply({ content: 'This button is not for you!', ephemeral: true });
       }
-    )
-    .setFooter({ text: `${guild.name} • Data updates in real-time • Click button for chart view` })
-    .setTimestamp();
 
-  // Create button to view chart
-  const row = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`stats_chart_daily_${interaction.user.id}`)
-        .setLabel('📊 Generate Visual Chart')
-        .setStyle(ButtonStyle.Primary)
-    );
-
-  const message = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
-
-  // Create collector for button
-  const collector = message.createMessageComponentCollector({ time: 300000 });
-
-  collector.on('collect', async i => {
-    if (i.user.id !== interaction.user.id) {
-      return i.reply({ content: 'This button is not for you!', ephemeral: true });
-    }
-
-    if (i.customId.startsWith('stats_chart_daily')) {
       await i.deferUpdate();
 
       try {
-        // Get hourly data
-        const hourlyData = await statsManager.getHourlyActivity(guildId, 24);
-        const activeMembers = await statsManager.getActiveMembersCount(guildId, 1);
-        
-        const imageData = {
-          subtitle: `Daily Stats - ${todayStats.date}`,
-          totalMessages: todayStats.messages,
-          totalVoice: voiceHours,
-          peakHour: hourlyData.reduce((max, h) => h.messages > max.messages ? h : max, hourlyData[0]).hour,
-          activeMembers: activeMembers,
-          hourlyData: hourlyData.map(h => ({
-            label: h.hour,
-            messages: h.messages
-          }))
-        };
+        if (!showingGraph) {
+          // Show graph
+          const hourlyData = await statsManager.getHourlyActivity(guildId, 24);
+          const activeMembers = await statsManager.getActiveMembersCount(guildId, 1);
+          
+          const graphData = {
+            subtitle: `Daily Stats - ${todayStats.date}`,
+            totalMessages: todayStats.messages,
+            totalVoice: parseFloat(voiceHours),
+            peakHour: hourlyData.reduce((max, h) => h.messages > max.messages ? h : max, hourlyData[0]).hour,
+            activeMembers: activeMembers,
+            hourlyData: hourlyData.map(h => ({
+              label: h.hour,
+              messages: h.messages
+            }))
+          };
 
-        const imageBuffer = await canvasGenerator.generateDailyChart(imageData);
-        const attachment = new AttachmentBuilder(imageBuffer, { name: 'daily-stats.png' });
+          const graphImage = await canvasGenerator.generateDailyGraph(graphData);
+          const graphAttachment = new AttachmentBuilder(graphImage, { name: 'daily-graph.png' });
 
-        await i.followUp({ files: [attachment], ephemeral: false });
+          const graphRow = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder()
+                .setCustomId(`view_stats_daily_${interaction.user.id}`)
+                .setLabel('📊 View Stats')
+                .setStyle(ButtonStyle.Primary)
+            );
+
+          await i.editReply({ files: [graphAttachment], components: [graphRow] });
+          showingGraph = true;
+        } else {
+          // Show stats again
+          const statsRow = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder()
+                .setCustomId(`view_graph_daily_${interaction.user.id}`)
+                .setLabel('📈 View Graph')
+                .setStyle(ButtonStyle.Success)
+            );
+
+          await i.editReply({ files: [attachment], components: [statsRow] });
+          showingGraph = false;
+        }
       } catch (error) {
-        console.error('Error generating chart:', error);
-        await i.followUp({ content: '❌ Failed to generate chart. Please try again later.', ephemeral: true });
+        console.error('Error toggling view:', error);
+        await i.followUp({ content: '❌ Failed to switch view. Please try again.', ephemeral: true });
       }
-    }
-  });
+    });
 
-  collector.on('end', () => {
-    const disabledRow = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('stats_chart_daily_disabled')
-          .setLabel('📊 Generate Visual Chart')
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(true)
-      );
-    message.edit({ components: [disabledRow] }).catch(() => {});
-  });
+    collector.on('end', () => {
+      const disabledRow = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('disabled')
+            .setLabel(showingGraph ? '📊 View Stats' : '📈 View Graph')
+            .setStyle(showingGraph ? ButtonStyle.Primary : ButtonStyle.Success)
+            .setDisabled(true)
+        );
+      message.edit({ components: [disabledRow] }).catch(() => {});
+    });
+  } catch (error) {
+    console.error('Error in handleDaily:', error);
+    await interaction.reply({ content: '❌ Error generating daily stats.', ephemeral: true });
+  }
 }
 
 async function handleWeekly(interaction, statsManager) {
@@ -663,124 +667,113 @@ async function handleMembers(interaction, statsManager) {
 
 async function handleActivity(interaction, statsManager) {
   const guildId = interaction.guildId;
-  const weeklyData = await statsManager.getWeeklyStats(guildId);
-  const guildStats = await statsManager.getGuildStats(guildId);
   const guild = interaction.guild;
-  
-  const totalMessages = weeklyData.reduce((sum, day) => sum + day.messages, 0);
-  const totalVoiceMinutes = weeklyData.reduce((sum, day) => sum + day.voiceMinutes, 0);
-  
-  // Find most active day
-  const mostActiveDay = weeklyData.reduce((max, day) => 
-    day.messages > max.messages ? day : max, weeklyData[0]);
-  
-  const messageChart = createMiniChart(weeklyData.map(d => d.messages));
-  const voiceChart = createMiniChart(weeklyData.map(d => d.voiceMinutes));
-  
-  const embed = new EmbedBuilder()
-    .setColor('#00FF00')
-    .setTitle(`📈 Server Activity Statistics`)
-    .setDescription(`Activity overview for ${guild.name}`)
-    .addFields(
-      {
-        name: '💬 Message Activity (7 days)',
-        value: [
-          `${messageChart}`,
-          `Total: **${totalMessages.toLocaleString()}** messages`,
-          `Daily Avg: **${Math.round(totalMessages / 7).toLocaleString()}**`,
-          `Hourly Avg: **${Math.round(totalMessages / 168)}**`,
-          `Peak Day: **${mostActiveDay.date}** (${mostActiveDay.messages.toLocaleString()})`
-        ].join('\n'),
-        inline: false
-      },
-      {
-        name: '🎤 Voice Activity (7 days)',
-        value: [
-          `${voiceChart}`,
-          `Total: **${(totalVoiceMinutes / 60).toFixed(1)}** hours`,
-          `Daily Avg: **${(totalVoiceMinutes / 60 / 7).toFixed(1)}** hours`,
-          `Peak: **${(Math.max(...weeklyData.map(d => d.voiceMinutes)) / 60).toFixed(1)}** hours`
-        ].join('\n'),
-        inline: false
-      },
-      {
-        name: '🟢 Online Activity',
-        value: [
-          `Peak: **${Math.max(...weeklyData.map(d => d.maxOnline))}** members`,
-          `Avg Peak: **${Math.round(weeklyData.reduce((sum, d) => sum + d.maxOnline, 0) / 7)}**`
-        ].join('\n'),
-        inline: true
-      },
-      {
-        name: '📊 All-Time Totals',
-        value: [
-          `Messages: **${guildStats.totalStats.totalMessages.toLocaleString()}**`,
-          `Voice: **${(guildStats.totalStats.totalVoiceMinutes / 60).toFixed(0)}** hours`
-        ].join('\n'),
-        inline: false
-      }
-    )
-    .setFooter({ text: 'Activity statistics • Past 7 days • Click button for visual chart' })
-    .setTimestamp();
 
-  // Add button for image chart
-  const row = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('activity_image_chart')
-        .setLabel('📊 Generate Visual Chart')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🎨')
-    );
-
-  const response = await interaction.reply({ embeds: [embed], components: [row] });
-
-  // Button collector
-  const collector = response.createMessageComponentCollector({
-    filter: i => i.customId === 'activity_image_chart' && i.user.id === interaction.user.id,
-    time: 300000 // 5 minutes
-  });
-
-  collector.on('collect', async i => {
-    await i.deferUpdate();
+  try {
+    // Get hourly data for the past 24 hours
+    const hourlyData = await statsManager.getHourlyActivity(guildId, 24);
+    const activeMembers = await statsManager.getActiveMembersCount(guildId, 7);
     
-    try {
-      // Get hourly data for the past 24 hours
-      const hourlyData = await statsManager.getHourlyActivity(guildId, 24);
-      
-      // Get active member count
-      const activeMembers = await statsManager.getActiveMembersCount(guildId, 7);
-      
-      // Prepare data for image generation
-      const imageData = {
-        title: 'Server Activity - Last 24 Hours',
-        subtitle: guild.name,
-        totalMessages: hourlyData.reduce((sum, h) => sum + h.messages, 0),
-        totalVoice: hourlyData.reduce((sum, h) => sum + h.voiceMinutes, 0) / 60,
-        peakHour: hourlyData.reduce((max, h) => h.messages > max.messages ? h : max, hourlyData[0]).hour,
-        activeMembers: activeMembers,
-        hourlyData: hourlyData.map(h => ({
-          label: h.hour,
-          messages: h.messages,
-          voice: h.voiceMinutes / 60
-        }))
-      };
-      
-      const imageBuffer = await canvasGenerator.generateActivityCard(imageData);
-      const attachment = new AttachmentBuilder(imageBuffer, { name: 'activity.png' });
-      
-      await i.followUp({ files: [attachment], ephemeral: false });
-    } catch (error) {
-      console.error('Error generating activity chart:', error);
-      await i.followUp({ content: '❌ Error generating visual chart. Please try again.', ephemeral: true });
-    }
-  });
+    const totalMessages = hourlyData.reduce((sum, h) => sum + h.messages, 0);
+    const totalVoice = hourlyData.reduce((sum, h) => sum + h.voiceMinutes, 0) / 60;
+    const peakHour = hourlyData.reduce((max, h) => h.messages > max.messages ? h : max, hourlyData[0]).hour;
 
-  collector.on('end', () => {
-    // Disable button after timeout
-    row.components[0].setDisabled(true);
-    interaction.editReply({ embeds: [embed], components: [row] }).catch(() => {});
-  });
+    // Generate stats summary image
+    const statsImageData = {
+      totalMessages: totalMessages,
+      totalVoice: totalVoice,
+      peakHour: peakHour,
+      activeMembers: activeMembers
+    };
+
+    const statsImage = await canvasGenerator.generateActivityStatsImage(statsImageData);
+    const attachment = new AttachmentBuilder(statsImage, { name: 'activity-stats.png' });
+
+    // Create button to view graph
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`view_graph_activity_${interaction.user.id}`)
+          .setLabel('� View Graph')
+          .setStyle(ButtonStyle.Success)
+      );
+
+    const message = await interaction.reply({ files: [attachment], components: [row], fetchReply: true });
+
+    // Button collector
+    const collector = message.createMessageComponentCollector({ time: 300000 });
+    let showingGraph = false;
+
+    collector.on('collect', async i => {
+      if (i.user.id !== interaction.user.id) {
+        return i.reply({ content: 'This button is not for you!', ephemeral: true });
+      }
+
+      await i.deferUpdate();
+
+      try {
+        if (!showingGraph) {
+          // Show graph
+          const graphData = {
+            subtitle: guild.name,
+            totalMessages: totalMessages,
+            totalVoice: totalVoice,
+            peakHour: peakHour,
+            activeMembers: activeMembers,
+            hourlyData: hourlyData.map(h => ({
+              label: h.hour,
+              messages: h.messages,
+              voice: h.voiceMinutes / 60
+            }))
+          };
+
+          const graphImage = await canvasGenerator.generateActivityGraph(graphData);
+          const graphAttachment = new AttachmentBuilder(graphImage, { name: 'activity-graph.png' });
+
+          const graphRow = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder()
+                .setCustomId(`view_stats_activity_${interaction.user.id}`)
+                .setLabel('📊 View Stats')
+                .setStyle(ButtonStyle.Primary)
+            );
+
+          await i.editReply({ files: [graphAttachment], components: [graphRow] });
+          showingGraph = true;
+        } else {
+          // Show stats again
+          const statsRow = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder()
+                .setCustomId(`view_graph_activity_${interaction.user.id}`)
+                .setLabel('📈 View Graph')
+                .setStyle(ButtonStyle.Success)
+            );
+
+          await i.editReply({ files: [attachment], components: [statsRow] });
+          showingGraph = false;
+        }
+      } catch (error) {
+        console.error('Error toggling view:', error);
+        await i.followUp({ content: '❌ Failed to switch view. Please try again.', ephemeral: true });
+      }
+    });
+
+    collector.on('end', () => {
+      const disabledRow = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('disabled')
+            .setLabel(showingGraph ? '📊 View Stats' : '📈 View Graph')
+            .setStyle(showingGraph ? ButtonStyle.Primary : ButtonStyle.Success)
+            .setDisabled(true)
+        );
+      message.edit({ components: [disabledRow] }).catch(() => {});
+    });
+  } catch (error) {
+    console.error('Error in handleActivity:', error);
+    await interaction.reply({ content: '❌ Error generating activity stats.', ephemeral: true });
+  }
 }
 
 function createProgressBar(current, max, length = 10) {

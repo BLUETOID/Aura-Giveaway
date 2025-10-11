@@ -122,10 +122,86 @@ class CanvasGenerator {
   }
 
   /**
-   * Generate daily activity chart (24 hours)
+   * Generate daily stats summary image (text-based, replaces embed)
    */
-  async generateDailyChart(data) {
-    return this.generateBarChart({
+  async generateDailyStatsImage(data) {
+    const width = 800;
+    const height = 500;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    // Background - Black
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, width, height);
+
+    // Main card - Dark gray
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(20, 20, width - 40, height - 40);
+    
+    // Border
+    ctx.strokeStyle = '#404040';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(20, 20, width - 40, height - 40);
+
+    // Title
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillText('📅 Daily Statistics', 50, 70);
+
+    // Date
+    ctx.fillStyle = '#999999';
+    ctx.font = '20px sans-serif';
+    ctx.fillText(data.date || 'Today', 50, 105);
+
+    let y = 160;
+
+    // Member Activity Section
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('👥 Member Activity', 50, y);
+    y += 35;
+
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`📥 Joins: ${data.joins || 0}`, 70, y);
+    ctx.fillText(`📤 Leaves: ${data.leaves || 0}`, 300, y);
+    y += 30;
+    ctx.fillText(`📊 Net Growth: ${data.netGrowth > 0 ? '+' : ''}${data.netGrowth || 0}`, 70, y);
+    ctx.fillText(`🟢 Peak Online: ${data.maxOnline || 0}`, 300, y);
+    y += 50;
+
+    // Message Activity Section
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('💬 Message Activity', 50, y);
+    y += 35;
+
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`Total: ${data.totalMessages?.toLocaleString() || '0'} messages`, 70, y);
+    y += 30;
+    ctx.fillText(`Hourly Avg: ${data.avgMessages || 0}`, 70, y);
+    y += 50;
+
+    // Voice Activity Section
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('🎤 Voice Activity', 50, y);
+    y += 35;
+
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`Total: ${data.voiceHours || 0} hours`, 70, y);
+    ctx.fillText(`Minutes: ${data.voiceMinutes?.toLocaleString() || '0'}`, 300, y);
+
+    return canvas.toBuffer('image/png');
+  }
+
+  /**
+   * Generate daily activity LINE GRAPH (not bar chart)
+   */
+  async generateDailyGraph(data) {
+    return this.generateLineChart({
       title: 'Daily Activity - Last 24 Hours',
       subtitle: data.subtitle || 'Hourly Breakdown',
       stats: [
@@ -135,16 +211,82 @@ class CanvasGenerator {
         { label: '👥 Active', value: data.activeMembers?.toString() || '0' }
       ],
       chartData: data.hourlyData || [],
-      dataKey: 'messages',
-      labelKey: 'label',
-      barColor: '#ffffff'
+      lines: [
+        { dataKey: 'messages', color: '#ffffff', label: 'Messages' }
+      ],
+      labelKey: 'label'
     });
   }
 
   /**
-   * Generate weekly stats chart (7 days)
+   * Generate weekly stats summary image (text-based)
    */
-  async generateWeeklyChart(data) {
+  async generateWeeklyStatsImage(data) {
+    const width = 800;
+    const height = 500;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(20, 20, width - 40, height - 40);
+    ctx.strokeStyle = '#404040';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(20, 20, width - 40, height - 40);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillText('📊 Weekly Statistics', 50, 70);
+    ctx.fillStyle = '#999999';
+    ctx.font = '20px sans-serif';
+    ctx.fillText('Last 7 Days', 50, 105);
+
+    let y = 160;
+
+    // Member Growth
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('👥 Member Growth', 50, y);
+    y += 35;
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`Joins: ${data.totalJoins || 0}`, 70, y);
+    ctx.fillText(`Leaves: ${data.totalLeaves || 0}`, 300, y);
+    y += 30;
+    ctx.fillText(`Net: ${data.netGrowth > 0 ? '+' : ''}${data.netGrowth || 0}`, 70, y);
+    y += 50;
+
+    // Message Activity
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('💬 Message Activity', 50, y);
+    y += 35;
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`Total: ${data.totalMessages?.toLocaleString() || '0'}`, 70, y);
+    y += 30;
+    ctx.fillText(`Daily Avg: ${data.avgMessages?.toLocaleString() || '0'}`, 70, y);
+    ctx.fillText(`Peak: ${data.peakMessages?.toLocaleString() || '0'}`, 300, y);
+    y += 50;
+
+    // Voice Activity
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('🎤 Voice Activity', 50, y);
+    y += 35;
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`Total: ${data.totalVoice || '0'} hours`, 70, y);
+    ctx.fillText(`Daily Avg: ${data.avgVoice || '0'} hours`, 300, y);
+
+    return canvas.toBuffer('image/png');
+  }
+
+  /**
+   * Generate weekly LINE GRAPH (7 days)
+   */
+  async generateWeeklyGraph(data) {
     return this.generateLineChart({
       title: 'Weekly Statistics - Last 7 Days',
       subtitle: data.subtitle || 'Daily Trends',
@@ -164,9 +306,71 @@ class CanvasGenerator {
   }
 
   /**
-   * Generate monthly stats chart (30 days)
+   * Generate monthly stats summary image (text-based)
    */
-  async generateMonthlyChart(data) {
+  async generateMonthlyStatsImage(data) {
+    const width = 800;
+    const height = 500;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(20, 20, width - 40, height - 40);
+    ctx.strokeStyle = '#404040';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(20, 20, width - 40, height - 40);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillText('📊 Monthly Statistics', 50, 70);
+    ctx.fillStyle = '#999999';
+    ctx.font = '20px sans-serif';
+    ctx.fillText('Last 30 Days', 50, 105);
+
+    let y = 160;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('👥 Member Growth', 50, y);
+    y += 35;
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`Joins: ${data.totalJoins || 0}`, 70, y);
+    ctx.fillText(`Leaves: ${data.totalLeaves || 0}`, 300, y);
+    y += 30;
+    ctx.fillText(`Net: ${data.netGrowth > 0 ? '+' : ''}${data.netGrowth || 0}`, 70, y);
+    y += 50;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('💬 Message Activity', 50, y);
+    y += 35;
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`Total: ${data.totalMessages?.toLocaleString() || '0'}`, 70, y);
+    y += 30;
+    ctx.fillText(`Daily Avg: ${data.avgMessages?.toLocaleString() || '0'}`, 70, y);
+    ctx.fillText(`Peak: ${data.peakMessages?.toLocaleString() || '0'}`, 300, y);
+    y += 50;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('🎤 Voice Activity', 50, y);
+    y += 35;
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`Total: ${data.totalVoice || '0'} hours`, 70, y);
+    ctx.fillText(`Daily Avg: ${data.avgVoice || '0'} hours`, 300, y);
+
+    return canvas.toBuffer('image/png');
+  }
+
+  /**
+   * Generate monthly LINE GRAPH (30 days)
+   */
+  async generateMonthlyGraph(data) {
     return this.generateLineChart({
       title: 'Monthly Statistics - Last 30 Days',
       subtitle: data.subtitle || 'Daily Activity',
@@ -185,11 +389,75 @@ class CanvasGenerator {
   }
 
   /**
-   * Generate member growth chart
+   * Generate member stats summary image (text-based)
    */
-  async generateMemberChart(data) {
+  async generateMemberStatsImage(data) {
+    const width = 800;
+    const height = 500;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(20, 20, width - 40, height - 40);
+    ctx.strokeStyle = '#404040';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(20, 20, width - 40, height - 40);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillText('👥 Member Growth', 50, 70);
+    ctx.fillStyle = '#999999';
+    ctx.font = '20px sans-serif';
+    ctx.fillText('Last 7 Days', 50, 105);
+
+    let y = 160;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('📊 Current Status', 50, y);
+    y += 35;
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`Total Members: ${data.currentMembers?.toLocaleString() || '0'}`, 70, y);
+    y += 30;
+    ctx.fillText(`Growth Rate: ${data.growthRate || '0'}%`, 70, y);
+    ctx.fillText(`Net Change: ${data.netGrowth > 0 ? '+' : ''}${data.netGrowth || 0}`, 300, y);
+    y += 50;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('📥 Join Statistics', 50, y);
+    y += 35;
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`Total Joins: ${data.totalJoins || 0}`, 70, y);
+    ctx.fillText(`Daily Avg: ${data.avgJoins || 0}`, 300, y);
+    y += 30;
+    ctx.fillText(`Best Day: ${data.bestJoinDay || 0}`, 70, y);
+    y += 50;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('📤 Leave Statistics', 50, y);
+    y += 35;
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(`Total Leaves: ${data.totalLeaves || 0}`, 70, y);
+    ctx.fillText(`Daily Avg: ${data.avgLeaves || 0}`, 300, y);
+    y += 30;
+    ctx.fillText(`Retention: ${data.retention || '0'}%`, 70, y);
+
+    return canvas.toBuffer('image/png');
+  }
+
+  /**
+   * Generate member growth LINE GRAPH
+   */
+  async generateMemberGraph(data) {
     return this.generateLineChart({
-      title: 'Member Growth - Last 30 Days',
+      title: 'Member Growth - Last 7 Days',
       subtitle: data.subtitle || 'Server Growth',
       stats: [
         { label: '👥 Total Members', value: data.currentMembers?.toLocaleString() || '0' },
@@ -199,7 +467,6 @@ class CanvasGenerator {
       ],
       chartData: data.dailyData || [],
       lines: [
-        { dataKey: 'members', color: '#ffffff', label: 'Members' },
         { dataKey: 'joins', color: '#4ade80', label: 'Joins' },
         { dataKey: 'leaves', color: '#f87171', label: 'Leaves' }
       ],
@@ -208,10 +475,46 @@ class CanvasGenerator {
   }
 
   /**
-   * Generate activity overview chart
+   * Generate activity stats summary image (text-based)
    */
-  async generateActivityChart(data) {
-    return this.generateBarChart({
+  async generateActivityStatsImage(data) {
+    const width = 800;
+    const height = 500;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(20, 20, width - 40, height - 40);
+    ctx.strokeStyle = '#404040';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(20, 20, width - 40, height - 40);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillText('📈 Server Activity', 50, 70);
+    ctx.fillStyle = '#999999';
+    ctx.font = '20px sans-serif';
+    ctx.fillText('Last 24 Hours', 50, 105);
+
+    let y = 180;
+
+    this.drawDarkStatBox(ctx, 50, y, 330, 90, '💬 Total Messages', data.totalMessages?.toLocaleString() || '0');
+    this.drawDarkStatBox(ctx, 420, y, 330, 90, '🎤 Voice Hours', (data.totalVoice?.toFixed(1) || '0') + 'h');
+    
+    y += 120;
+    this.drawDarkStatBox(ctx, 50, y, 330, 90, '📊 Peak Hour', data.peakHour || 'N/A');
+    this.drawDarkStatBox(ctx, 420, y, 330, 90, '👥 Active Members', data.activeMembers?.toString() || '0');
+
+    return canvas.toBuffer('image/png');
+  }
+
+  /**
+   * Generate activity LINE GRAPH (not bar chart)
+   */
+  async generateActivityGraph(data) {
+    return this.generateLineChart({
       title: 'Server Activity - Last 24 Hours',
       subtitle: data.subtitle || 'Hourly Breakdown',
       stats: [
@@ -221,9 +524,10 @@ class CanvasGenerator {
         { label: '👥 Active Members', value: data.activeMembers?.toString() || '0' }
       ],
       chartData: data.hourlyData || [],
-      dataKey: 'messages',
-      labelKey: 'label',
-      barColor: '#ffffff'
+      lines: [
+        { dataKey: 'messages', color: '#ffffff', label: 'Messages' }
+      ],
+      labelKey: 'label'
     });
   }
 
