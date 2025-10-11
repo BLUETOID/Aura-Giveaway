@@ -145,87 +145,14 @@ const statisticsSchema = new mongoose.Schema({
 // Index for date-based queries
 statisticsSchema.index({ 'dailyStats.date': 1 });
 
-// Helper method to clean up corrupted hourly activity data
-statisticsSchema.methods.cleanCorruptedHourlyData = function() {
-    let needsSave = false;
+// Automatically clean up old statistics (older than 30 days)
+statisticsSchema.methods.cleanOldStats = function() {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const cutoffDate = thirtyDaysAgo.toISOString().split('T')[0];
     
-    this.dailyStats.forEach(dayStat => {
-        if (dayStat.hourlyActivity) {
-            // Clean messages array
-            if (Array.isArray(dayStat.hourlyActivity.messages)) {
-                const cleanedMessages = [];
-                for (let i = 0; i < Math.min(dayStat.hourlyActivity.messages.length, 24); i++) {
-                    const msg = dayStat.hourlyActivity.messages[i];
-                    if (typeof msg === 'number' && !isNaN(msg)) {
-                        cleanedMessages[i] = msg;
-                    } else {
-                        cleanedMessages[i] = 0;
-                        needsSave = true;
-                    }
-                }
-                // Ensure we have exactly 24 elements
-                while (cleanedMessages.length < 24) {
-                    cleanedMessages.push(0);
-                }
-                dayStat.hourlyActivity.messages = cleanedMessages.slice(0, 24);
-            } else {
-                dayStat.hourlyActivity.messages = Array(24).fill(0);
-                needsSave = true;
-            }
-            
-            // Clean voiceMinutes array
-            if (Array.isArray(dayStat.hourlyActivity.voiceMinutes)) {
-                const cleanedVoice = [];
-                for (let i = 0; i < Math.min(dayStat.hourlyActivity.voiceMinutes.length, 24); i++) {
-                    const voice = dayStat.hourlyActivity.voiceMinutes[i];
-                    if (typeof voice === 'number' && !isNaN(voice)) {
-                        cleanedVoice[i] = voice;
-                    } else {
-                        cleanedVoice[i] = 0;
-                        needsSave = true;
-                    }
-                }
-                while (cleanedVoice.length < 24) {
-                    cleanedVoice.push(0);
-                }
-                dayStat.hourlyActivity.voiceMinutes = cleanedVoice.slice(0, 24);
-            } else {
-                dayStat.hourlyActivity.voiceMinutes = Array(24).fill(0);
-                needsSave = true;
-            }
-            
-            // Clean membersOnline array
-            if (Array.isArray(dayStat.hourlyActivity.membersOnline)) {
-                const cleanedMembers = [];
-                for (let i = 0; i < Math.min(dayStat.hourlyActivity.membersOnline.length, 24); i++) {
-                    const members = dayStat.hourlyActivity.membersOnline[i];
-                    if (typeof members === 'number' && !isNaN(members)) {
-                        cleanedMembers[i] = members;
-                    } else {
-                        cleanedMembers[i] = 0;
-                        needsSave = true;
-                    }
-                }
-                while (cleanedMembers.length < 24) {
-                    cleanedMembers.push(0);
-                }
-                dayStat.hourlyActivity.membersOnline = cleanedMembers.slice(0, 24);
-            } else {
-                dayStat.hourlyActivity.membersOnline = Array(24).fill(0);
-                needsSave = true;
-            }
-        } else {
-            // Initialize missing hourlyActivity
-            dayStat.hourlyActivity = {
-                messages: Array(24).fill(0),
-                voiceMinutes: Array(24).fill(0),
-                membersOnline: Array(24).fill(0)
-            };
-            needsSave = true;
-        }
-    });
-    
-    return needsSave;
+    this.dailyStats = this.dailyStats.filter(stat => stat.date >= cutoffDate);
+    return this.save();
 };
 
 // Helper method to get today's stats
