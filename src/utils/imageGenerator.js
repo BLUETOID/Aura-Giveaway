@@ -80,44 +80,23 @@ class ImageGenerator {
                 body {
                     width: 1100px;
                     height: 400px;
-                    background: linear-gradient(135deg, ${this.getGradient(userData.activityLevel)});
+                    background: #f4f5f7;
                     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
                     overflow: hidden;
                     position: relative;
+                    padding: 20px;
                 }
-                
-                /* Animated background effects */
-                .bg-overlay {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.1) 0%, transparent 50%),
-                                radial-gradient(circle at 70% 80%, rgba(255,255,255,0.08) 0%, transparent 50%);
-                    z-index: 0;
-                }
-                
-                .bg-pattern {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    opacity: 0.03;
-                    background-image: 
-                        repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px);
-                    z-index: 0;
-                }
-                
+
                 .card {
                     width: 100%;
                     height: 100%;
-                    padding: 40px;
+                    padding: 32px;
                     display: flex;
                     gap: 35px;
-                    position: relative;
-                    z-index: 1;
+                    background: #ffffff;
+                    border-radius: 28px;
+                    border: 1px solid #e5e7eb;
+                    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
                 }
                 
                 /* Avatar section with enhanced effects */
@@ -133,50 +112,34 @@ class ImageGenerator {
                     position: relative;
                 }
                 
-                .avatar-glow {
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    width: 220px;
-                    height: 220px;
-                    border-radius: 50%;
-                    background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, transparent 70%);
-                    filter: blur(20px);
-                    z-index: 0;
-                }
-                
                 .avatar-ring {
-                    width: 200px;
-                    height: 200px;
+                    width: 184px;
+                    height: 184px;
                     border-radius: 50%;
-                    background: linear-gradient(135deg, #FFD93D 0%, #FF6B9D 50%, #C724B1 100%);
-                    padding: 5px;
+                    border: 6px solid #4c51bf;
+                    background: #ffffff;
+                    padding: 6px;
                     position: relative;
-                    z-index: 1;
-                    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
                 }
-                
+
                 .avatar {
-                    width: 190px;
-                    height: 190px;
+                    width: 172px;
+                    height: 172px;
                     border-radius: 50%;
-                    border: 4px solid rgba(0,0,0,0.2);
-                    background: #1a1a1a;
                     object-fit: cover;
+                    object-position: center;
+                    display: block;
+                    background: #f1f5f9;
                 }
                 
                 .level-badge {
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
+                    background: #1f2937;
+                    color: #ffffff;
                     padding: 10px 24px;
-                    border-radius: 25px;
-                    font-weight: 800;
-                    font-size: 20px;
-                    text-transform: uppercase;
-                    letter-spacing: 1.5px;
-                    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-                    border: 2px solid rgba(255,255,255,0.3);
+                    border-radius: 999px;
+                    font-weight: 700;
+                    font-size: 18px;
+                    letter-spacing: 1px;
                 }
                 
                 /* Stats section */
@@ -189,19 +152,14 @@ class ImageGenerator {
                 }
                 
                 .header {
-                    color: white;
+                    color: #111827;
                 }
                 
                 .username {
                     font-size: 48px;
                     font-weight: 800;
-                    text-shadow: 0 4px 12px rgba(0,0,0,0.5);
                     margin-bottom: 8px;
                     letter-spacing: -0.5px;
-                    background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.85) 100%);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    background-clip: text;
                 }
                 
                 .activity-level {
@@ -209,23 +167,20 @@ class ImageGenerator {
                     display: inline-flex;
                     align-items: center;
                     gap: 10px;
-                    background: rgba(255,255,255,0.2);
-                    backdrop-filter: blur(10px);
+                    background: #f3f4f6;
                     padding: 8px 18px;
                     border-radius: 20px;
-                    border: 1px solid rgba(255,255,255,0.3);
-                    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                    border: 1px solid #e5e7eb;
                     font-weight: 600;
+                    color: #374151;
                 }
                 
                 /* XP Section with improved design */
                 .xp-section {
-                    background: rgba(0,0,0,0.25);
-                    backdrop-filter: blur(15px);
+                    background: #f9fafb;
                     padding: 20px;
                     border-radius: 20px;
-                    border: 1px solid rgba(255,255,255,0.15);
-                    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+                    border: 1px solid #e5e7eb;
                 }
                 
                 .xp-header {
@@ -236,7 +191,7 @@ class ImageGenerator {
                 }
                 
                 .xp-label {
-                    color: rgba(255,255,255,0.9);
+                    color: #4b5563;
                     font-size: 14px;
                     font-weight: 600;
                     text-transform: uppercase;
@@ -244,7 +199,7 @@ class ImageGenerator {
                 }
                 
                 .xp-percentage {
-                    color: white;
+                    color: #111827;
                     font-size: 18px;
                     font-weight: 700;
                 }
@@ -252,57 +207,26 @@ class ImageGenerator {
                 .xp-bar-container {
                     width: 100%;
                     height: 36px;
-                    background: rgba(0,0,0,0.4);
+                    background: #e5e7eb;
                     border-radius: 18px;
                     overflow: hidden;
                     position: relative;
-                    box-shadow: inset 0 4px 8px rgba(0,0,0,0.4);
                 }
                 
                 .xp-bar-fill {
                     height: 100%;
-                    background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-                    background-size: 200% 100%;
+                    background: #4f46e5;
                     width: ${userData.progressPercent}%;
                     border-radius: 18px;
                     position: relative;
-                    box-shadow: 0 0 20px rgba(118, 75, 162, 0.6);
-                }
-                
-                .xp-bar-fill::before {
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    height: 50%;
-                    background: linear-gradient(180deg, rgba(255,255,255,0.4), transparent);
-                    border-radius: 18px 18px 0 0;
-                }
-                
-                .xp-bar-fill::after {
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-                    animation: shimmer 2s infinite;
-                }
-                
-                @keyframes shimmer {
-                    0% { transform: translateX(-100%); }
-                    100% { transform: translateX(100%); }
                 }
                 
                 .xp-text {
-                    color: white;
+                    color: #1f2937;
                     text-align: center;
                     margin-top: 10px;
                     font-size: 16px;
                     font-weight: 600;
-                    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
                 }
                 
                 /* Rank cards with 3D effect */
@@ -313,44 +237,27 @@ class ImageGenerator {
                 }
                 
                 .rank-box {
-                    background: rgba(255,255,255,0.18);
-                    backdrop-filter: blur(15px);
+                    background: #f3f4f6;
                     padding: 22px;
                     border-radius: 18px;
-                    border: 1px solid rgba(255,255,255,0.25);
-                    box-shadow: 0 8px 25px rgba(0,0,0,0.25),
-                                inset 0 1px 0 rgba(255,255,255,0.2);
-                    position: relative;
-                    overflow: hidden;
-                }
-                
-                .rank-box::before {
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%);
-                    pointer-events: none;
+                    border: 1px solid #e5e7eb;
                 }
                 
                 .rank-icon {
                     font-size: 38px;
                     margin-bottom: 8px;
-                    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+                    color: #4c51bf;
                 }
                 
                 .rank-value {
                     font-size: 42px;
                     font-weight: 800;
-                    color: white;
-                    text-shadow: 0 3px 8px rgba(0,0,0,0.4);
+                    color: #111827;
                     letter-spacing: -1px;
                 }
                 
                 .rank-label {
-                    color: rgba(255,255,255,0.95);
+                    color: #4b5563;
                     font-size: 13px;
                     margin-top: 4px;
                     text-transform: uppercase;
@@ -363,7 +270,7 @@ class ImageGenerator {
                     position: absolute;
                     bottom: 15px;
                     right: 25px;
-                    color: rgba(255,255,255,0.6);
+                    color: #6b7280;
                     font-size: 12px;
                     font-weight: 500;
                     letter-spacing: 0.5px;
@@ -371,8 +278,6 @@ class ImageGenerator {
             </style>
         </head>
         <body>
-            <div class="bg-overlay"></div>
-            <div class="bg-pattern"></div>
             <div class="card">
                 <div class="avatar-section">
                     <div class="avatar-container">
