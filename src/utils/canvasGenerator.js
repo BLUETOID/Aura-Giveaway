@@ -563,7 +563,7 @@ class CanvasGenerator {
    */
   async generateActivityStatsImage(data) {
     const width = 900;
-    const height = 600;
+    const height = 500;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
 
@@ -580,44 +580,55 @@ class CanvasGenerator {
     ctx.fillText('📈 Server Activity', 50, 70);
     ctx.fillStyle = '#999999';
     ctx.font = '22px sans-serif';
-    ctx.fillText('Comprehensive Activity Analysis', 50, 105);
+    ctx.fillText('Last 24 Hours • Real-time Activity', 50, 105);
 
-    // Row 1: Message Stats
-    this.drawDarkStatBox(ctx, 50, 150, 250, 110, '💬 Total Messages', data.totalMessages?.toLocaleString() || '0');
-    this.drawDarkStatBox(ctx, 325, 150, 250, 110, '📊 Daily Average', data.avgMessages?.toLocaleString() || '0');
-    this.drawDarkStatBox(ctx, 600, 150, 250, 110, '⏱️ Hourly Avg', data.hourlyAvg?.toString() || '0');
-
-    // Row 2: Peak Stats
-    this.drawDarkStatBox(ctx, 50, 290, 250, 110, '⚡ Peak Hour', data.peakHour || 'N/A');
+    // Row 1: Message Stats (4 boxes)
+    this.drawDarkStatBox(ctx, 50, 150, 190, 110, '💬 Total Messages', data.totalMessages?.toLocaleString() || '0');
+    
+    this.drawDarkStatBox(ctx, 260, 150, 190, 110, '⚡ Peak Hour', data.peakHour || 'N/A');
     ctx.fillStyle = '#999999';
     ctx.font = '16px sans-serif';
-    ctx.fillText(`${data.peakMessages || 0} msgs`, 70, 385);
-
-    this.drawDarkStatBox(ctx, 325, 290, 250, 110, '📅 Peak Day', data.peakDay || 'N/A');
+    ctx.fillText('Most active time', 280, 245);
+    
+    this.drawDarkStatBox(ctx, 470, 150, 190, 110, '� Active Members', data.activeMembers?.toString() || '0');
     ctx.fillStyle = '#999999';
     ctx.font = '16px sans-serif';
-    ctx.fillText(`${data.peakDayMessages?.toLocaleString() || 0} msgs`, 345, 385);
+    ctx.fillText('Past 7 days', 490, 245);
+    
+    this.drawDarkStatBox(ctx, 680, 150, 170, 110, '🎤 Voice', `${typeof data.totalVoice === 'number' ? data.totalVoice.toFixed(1) : data.totalVoiceHours || '0'}h`);
 
-    this.drawDarkStatBox(ctx, 600, 290, 250, 110, '👥 Active Members', data.activeMembers?.toString() || '0');
-
-    // Row 3: Voice & Engagement
-    this.drawDarkStatBox(ctx, 50, 430, 250, 110, '🎤 Voice Hours', `${data.totalVoiceHours || '0'}h`);
-    ctx.fillStyle = '#999999';
-    ctx.font = '16px sans-serif';
-    ctx.fillText(`${data.avgVoiceHours || '0'}h/day avg`, 70, 525);
-
-    this.drawDarkStatBox(ctx, 325, 430, 250, 110, '🟢 Peak Online', data.peakOnline?.toString() || '0');
-    ctx.fillStyle = '#999999';
-    ctx.font = '16px sans-serif';
-    ctx.fillText(`${data.avgPeakOnline || 0} avg`, 345, 525);
-
-    const engagementRate = data.activeMembers && data.peakOnline ? 
-      ((data.activeMembers / data.peakOnline) * 100).toFixed(1) : '0';
-    this.drawDarkStatBox(ctx, 600, 430, 250, 110, '📊 Engagement', `${engagementRate}%`);
-    const engagementLevel = parseFloat(engagementRate) > 50 ? 'High' : parseFloat(engagementRate) > 25 ? 'Good' : 'Fair';
-    ctx.fillStyle = parseFloat(engagementRate) > 50 ? '#4ade80' : parseFloat(engagementRate) > 25 ? '#fbbf24' : '#999999';
-    ctx.font = 'bold 16px sans-serif';
-    ctx.fillText(engagementLevel, 620, 525);
+    // Bottom info bar with engagement
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(50, 300, 800, 160);
+    ctx.strokeStyle = '#404040';
+    ctx.strokeRect(50, 300, 800, 160);
+    
+    // Activity Summary
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillText('📊 Activity Summary', 70, 340);
+    
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    const avgPerHour = Math.round((data.totalMessages || 0) / 24);
+    ctx.fillText(`Average per hour: ${avgPerHour} messages`, 70, 375);
+    
+    const activityLevel = data.totalMessages > 500 ? '🔥 High Activity' : 
+                         data.totalMessages > 100 ? '⚡ Moderate Activity' : 
+                         '○ Low Activity';
+    const activityColor = data.totalMessages > 500 ? '#4ade80' : 
+                          data.totalMessages > 100 ? '#fbbf24' : '#999999';
+    
+    ctx.fillStyle = activityColor;
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText(activityLevel, 70, 410);
+    
+    // Voice info
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '18px sans-serif';
+    const voiceHours = typeof data.totalVoice === 'number' ? data.totalVoice : parseFloat(data.totalVoiceHours || 0);
+    const voiceAvg = (voiceHours / 24).toFixed(1);
+    ctx.fillText(`Voice activity: ${voiceHours.toFixed(1)}h total (${voiceAvg}h/hour avg)`, 70, 440);
 
     return canvas.toBuffer('image/png');
   }

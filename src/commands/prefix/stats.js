@@ -584,35 +584,23 @@ async function handleMembers(message, statsManager) {
 
 async function handleActivity(message, statsManager) {
   const guildId = message.guild.id;
-  const weeklyData = await statsManager.getWeeklyStats(guildId);
-  const guildStats = await statsManager.getGuildStats(guildId);
   const guild = message.guild;
-  
-  const totalMessages = weeklyData.reduce((sum, day) => sum + day.messages, 0);
-  const totalVoiceMinutes = weeklyData.reduce((sum, day) => sum + day.voiceMinutes, 0);
-  
-  const mostActiveDay = weeklyData.reduce((max, day) => 
-    day.messages > max.messages ? day : max, weeklyData[0]);
 
   try {
-    // Get hourly data for the graph
+    // Get hourly data for the past 24 hours (same as slash command)
     const hourlyData = await statsManager.getHourlyActivity(guildId, 24);
     const activeMembers = await statsManager.getActiveMembersCount(guildId, 7);
+    
+    const totalMessages = hourlyData.reduce((sum, h) => sum + h.messages, 0);
+    const totalVoice = hourlyData.reduce((sum, h) => sum + h.voiceMinutes, 0) / 60;
+    const peakHour = hourlyData.reduce((max, h) => h.messages > max.messages ? h : max, hourlyData[0]).hour;
 
-    // Prepare data for stats image
+    // Prepare data for stats image (matching slash command)
     const statsImageData = {
       totalMessages: totalMessages,
-      avgMessages: Math.round(totalMessages / 7),
-      hourlyAvg: Math.round(totalMessages / 168),
-      peakDay: mostActiveDay.date,
-      peakMessages: mostActiveDay.messages,
-      totalVoiceHours: (totalVoiceMinutes / 60).toFixed(1),
-      avgVoiceHours: (totalVoiceMinutes / 60 / 7).toFixed(1),
-      peakVoice: (Math.max(...weeklyData.map(d => d.voiceMinutes)) / 60).toFixed(1),
-      peakOnline: Math.max(...weeklyData.map(d => d.maxOnline)),
-      avgPeakOnline: Math.round(weeklyData.reduce((sum, d) => sum + d.maxOnline, 0) / 7),
-      allTimeMessages: guildStats.totalStats.totalMessages,
-      allTimeVoice: (guildStats.totalStats.totalVoiceMinutes / 60).toFixed(0)
+      totalVoice: totalVoice,
+      peakHour: peakHour,
+      activeMembers: activeMembers
     };
 
     // Generate the activity stats image
@@ -645,13 +633,10 @@ async function handleActivity(message, statsManager) {
       try {
         if (!showingGraph) {
           // Switch to graph view
-          const peakHour = hourlyData.reduce((max, h) => h.messages > max.messages ? h : max, hourlyData[0]).hour;
-          
           const graphData = {
-            title: 'Server Activity - Last 24 Hours',
             subtitle: guild.name,
-            totalMessages: hourlyData.reduce((sum, h) => sum + h.messages, 0),
-            totalVoice: hourlyData.reduce((sum, h) => sum + h.voiceMinutes, 0) / 60,
+            totalMessages: totalMessages,
+            totalVoice: totalVoice,
             peakHour: peakHour,
             activeMembers: activeMembers,
             hourlyData: hourlyData.map(h => ({
