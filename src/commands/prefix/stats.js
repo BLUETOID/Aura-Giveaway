@@ -40,12 +40,8 @@ module.exports = {
       case 'lb':
         await handleLeaderboard(message, args, statsManager);
         break;
-      case 'profile':
-      case 'user':
-        await handleProfile(message, args, statsManager);
-        break;
       default:
-        await message.reply(`❌ Invalid subcommand. Use: \`overview\`, \`daily\`, \`weekly\`, \`monthly\`, \`members\`, \`activity\`, \`leaderboard\`, or \`profile\``);
+        await message.reply(`❌ Invalid subcommand. Use: \`overview\`, \`daily\`, \`weekly\`, \`monthly\`, \`members\`, \`activity\`, or \`leaderboard\``);
     }
   },
 };
@@ -517,97 +513,4 @@ async function handleLeaderboard(message, args, statsManager) {
     console.error('Error in leaderboard:', error);
     await message.reply('❌ Error loading leaderboard.');
   }
-}
-
-async function handleProfile(message, args, statsManager) {
-  try {
-    let targetUser = message.author;
-    
-    // Check if a user was mentioned
-    if (message.mentions.users.size > 0) {
-      targetUser = message.mentions.users.first();
-    } else if (args.length > 1) {
-      // Try to get user by ID
-      try {
-        targetUser = await message.client.users.fetch(args[1]);
-      } catch (error) {
-        return message.reply('❌ Could not find that user. Please mention a user or provide a valid user ID.');
-      }
-    }
-
-    const member = await message.guild.members.fetch(targetUser.id).catch(() => null);
-    
-    if (!member) {
-      return message.reply(`❌ User ${targetUser.username} is not in this server.`);
-    }
-
-    const userStats = await statsManager.getUserProfile(message.guild.id, targetUser.id);
-    
-    if (!userStats || userStats.messages.total === 0) {
-      return message.reply(`❌ No data found for ${targetUser.username}. They may not have sent any messages yet.`);
-    }
-
-    const leaderboardRank = await statsManager.getUserLeaderboardRank(message.guild.id, targetUser.id);
-    
-    // Calculate activity level
-    const activityLevel = calculateActivityLevel(userStats.messages.total);
-    
-    // Calculate average messages per day
-    const memberDays = Math.max(1, Math.floor((Date.now() - member.joinedTimestamp) / (1000 * 60 * 60 * 24)));
-    const avgPerDay = Math.round(userStats.messages.total / memberDays);
-    
-    const embed = new EmbedBuilder()
-      .setTitle(`👤 ${targetUser.username}'s Profile`)
-      .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
-      .setColor('#00ff88')
-      .addFields(
-        {
-          name: '📊 Message Statistics',
-          value: 
-            `**Total Messages:** ${userStats.messages.total.toLocaleString()}\n` +
-            `**This Month:** ${userStats.messages.monthly.toLocaleString()}\n` +
-            `**This Week:** ${userStats.messages.weekly.toLocaleString()}\n` +
-            `**Today:** ${userStats.messages.daily.toLocaleString()}\n` +
-            `**Daily Average:** ${avgPerDay.toLocaleString()}`,
-          inline: true
-        },
-        {
-          name: '🏆 Rankings & Activity',
-          value: 
-            `**Leaderboard Rank:** ${leaderboardRank ? `#${leaderboardRank.rank}` : 'Unranked'}\n` +
-            `**Activity Level:** ${activityLevel.emoji} ${activityLevel.name}\n` +
-            `**Giveaways Entered:** ${userStats.giveawaysEntered || 0}\n` +
-            `**Giveaways Won:** ${userStats.giveawaysWon || 0}\n` +
-            `**Voice Time:** ${Math.round(userStats.voiceTime / 60)}h`,
-          inline: true
-        },
-        {
-          name: '📅 Account Information',
-          value: 
-            `**Joined Server:** <t:${Math.floor(member.joinedTimestamp / 1000)}:D>\n` +
-            `**Account Created:** <t:${Math.floor(targetUser.createdTimestamp / 1000)}:D>\n` +
-            `**Last Active:** <t:${Math.floor(userStats.lastMessageDate.getTime() / 1000)}:R>\n` +
-            `**Server Age:** ${memberDays} days\n` +
-            `**Roles:** ${member.roles.cache.size - 1} roles`,
-          inline: false
-        }
-      )
-      .setFooter({ text: `User ID: ${targetUser.id} • Use /stats profile for enhanced charts` })
-      .setTimestamp();
-
-    await message.reply({ embeds: [embed] });
-    
-  } catch (error) {
-    console.error('Error in profile command:', error);
-    await message.reply('❌ Error loading user profile.');
-  }
-}
-
-function calculateActivityLevel(totalMessages) {
-  if (totalMessages >= 10000) return { name: 'Super Active', emoji: '🔥' };
-  if (totalMessages >= 5000) return { name: 'Very Active', emoji: '⚡' };
-  if (totalMessages >= 2000) return { name: 'Active', emoji: '💪' };
-  if (totalMessages >= 500) return { name: 'Regular', emoji: '📝' };
-  if (totalMessages >= 100) return { name: 'Occasional', emoji: '👋' };
-  return { name: 'Newcomer', emoji: '🌱' };
 }

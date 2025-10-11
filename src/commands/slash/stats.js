@@ -53,16 +53,7 @@ module.exports = {
             .setDescription('Number of users to show (max 25)')
             .setRequired(false)
             .setMinValue(1)
-            .setMaxValue(25)))
-    .addSubcommand(subcommand =>
-      subcommand
-        .setName('profile')
-        .setDescription('View detailed user statistics')
-        .addUserOption(option =>
-          option
-            .setName('user')
-            .setDescription('User to view profile for (defaults to yourself)')
-            .setRequired(false))),
+            .setMaxValue(25))),
 
   async execute(interaction, { statsManager }) {
     if (!statsManager) {
@@ -92,9 +83,6 @@ module.exports = {
         break;
       case 'leaderboard':
         await handleLeaderboard(interaction, statsManager);
-        break;
-      case 'profile':
-        await handleProfile(interaction, statsManager);
         break;
     }
   },
@@ -607,24 +595,7 @@ async function handleActivity(interaction, statsManager) {
     .setFooter({ text: 'Activity statistics • Past 7 days' })
     .setTimestamp();
 
-  // Add buttons for enhanced visualizations
-  const row = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('activity_heatmap')
-        .setLabel('🔥 Message Heat Map')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('voice_heatmap')
-        .setLabel('🎤 Voice Heat Map')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('enhanced_chart')
-        .setLabel('📊 Enhanced Charts')
-        .setStyle(ButtonStyle.Success)
-    );
-
-  await interaction.reply({ embeds: [embed], components: [row] });
+  await interaction.reply({ embeds: [embed] });
 }
 
 function createProgressBar(current, max, length = 10) {
@@ -697,108 +668,4 @@ async function handleLeaderboard(interaction, statsManager) {
     console.error('Error in leaderboard:', error);
     await interaction.editReply('❌ Error loading leaderboard.');
   }
-}
-
-async function handleProfile(interaction, statsManager) {
-  const targetUser = interaction.options.getUser('user') || interaction.user;
-  
-  await interaction.deferReply();
-  
-  try {
-    const member = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
-    
-    if (!member) {
-      return interaction.editReply(`❌ User ${targetUser.username} is not in this server.`);
-    }
-
-    const userStats = await statsManager.getUserProfile(interaction.guild.id, targetUser.id);
-    
-    if (!userStats || userStats.messages.total === 0) {
-      return interaction.editReply(`❌ No data found for ${targetUser.username}. They may not have sent any messages yet.`);
-    }
-
-    const leaderboardRank = await statsManager.getUserLeaderboardRank(interaction.guild.id, targetUser.id);
-    
-    // Calculate activity level
-    const activityLevel = calculateActivityLevel(userStats.messages.total);
-    
-    // Calculate average messages per day
-    const memberDays = Math.max(1, Math.floor((Date.now() - member.joinedTimestamp) / (1000 * 60 * 60 * 24)));
-    const avgPerDay = Math.round(userStats.messages.total / memberDays);
-    
-    const embed = new EmbedBuilder()
-      .setTitle(`👤 ${targetUser.username}'s Profile`)
-      .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
-      .setColor('#00ff88')
-      .addFields(
-        {
-          name: '📊 Message Statistics',
-          value: 
-            `**Total Messages:** ${userStats.messages.total.toLocaleString()}\n` +
-            `**This Month:** ${userStats.messages.monthly.toLocaleString()}\n` +
-            `**This Week:** ${userStats.messages.weekly.toLocaleString()}\n` +
-            `**Today:** ${userStats.messages.daily.toLocaleString()}\n` +
-            `**Daily Average:** ${avgPerDay.toLocaleString()}`,
-          inline: true
-        },
-        {
-          name: '🏆 Rankings & Activity',
-          value: 
-            `**Leaderboard Rank:** ${leaderboardRank ? `#${leaderboardRank.rank}` : 'Unranked'}\n` +
-            `**Activity Level:** ${activityLevel.emoji} ${activityLevel.name}\n` +
-            `**Giveaways Entered:** ${userStats.giveawaysEntered || 0}\n` +
-            `**Giveaways Won:** ${userStats.giveawaysWon || 0}\n` +
-            `**Voice Time:** ${Math.round(userStats.voiceTime / 60)}h`,
-          inline: true
-        },
-        {
-          name: '📅 Account Information',
-          value: 
-            `**Joined Server:** <t:${Math.floor(member.joinedTimestamp / 1000)}:D>\n` +
-            `**Account Created:** <t:${Math.floor(targetUser.createdTimestamp / 1000)}:D>\n` +
-            `**Last Active:** <t:${Math.floor(userStats.lastMessageDate.getTime() / 1000)}:R>\n` +
-            `**Server Age:** ${memberDays} days\n` +
-            `**Roles:** ${member.roles.cache.size - 1} roles`,
-          inline: false
-        }
-      )
-      .setFooter({ text: `User ID: ${targetUser.id}` })
-      .setTimestamp();
-
-    // Generate user activity chart
-    try {
-      const chartUrl = chartGenerator.generateUserProfileChart(userStats);
-      embed.setImage(chartUrl);
-    } catch (error) {
-      console.error('Error generating profile chart:', error);
-    }
-
-    // Add button for activity heat map
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`heatmap_${targetUser.id}`)
-          .setLabel('🔥 View Activity Heat Map')
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId(`compare_${targetUser.id}`)
-          .setLabel('📊 Compare with Server')
-          .setStyle(ButtonStyle.Secondary)
-      );
-
-    await interaction.editReply({ embeds: [embed], components: [row] });
-    
-  } catch (error) {
-    console.error('Error in profile command:', error);
-    await interaction.editReply('❌ Error loading user profile.');
-  }
-}
-
-function calculateActivityLevel(totalMessages) {
-  if (totalMessages >= 10000) return { name: 'Super Active', emoji: '🔥' };
-  if (totalMessages >= 5000) return { name: 'Very Active', emoji: '⚡' };
-  if (totalMessages >= 2000) return { name: 'Active', emoji: '💪' };
-  if (totalMessages >= 500) return { name: 'Regular', emoji: '📝' };
-  if (totalMessages >= 100) return { name: 'Occasional', emoji: '👋' };
-  return { name: 'Newcomer', emoji: '🌱' };
 }

@@ -120,11 +120,6 @@ function createHelpPages(prefix) {
         name: `\`${prefix}stats leaderboard\``, 
         value: `Top message senders on the server\n**Usage:** \`${prefix}stats leaderboard [period] [limit]\`\n**Periods:** total, daily, weekly, monthly (default: total)\n**Limit:** 1-25 users (default: 10)\n**Example:** \`${prefix}stats leaderboard weekly 15\``, 
         inline: false 
-      },
-      { 
-        name: `\`${prefix}stats profile\``, 
-        value: `Detailed user statistics and rankings\n**Usage:** \`${prefix}stats profile [@user]\`\n**Example:** \`${prefix}stats profile @username\`\n**Note:** Defaults to your own profile if no user mentioned`, 
-        inline: false 
       }
     )
     .setFooter({ text: `Page 2 of 4 • Current prefix: ${prefix}` })
@@ -139,6 +134,16 @@ function createHelpPages(prefix) {
       { 
         name: `\`${prefix}ping\``, 
         value: 'Check bot\'s latency and status', 
+        inline: false 
+      },
+      { 
+        name: `\`${prefix}profile\``, 
+        value: `View your game-style profile card\n**Usage:** \`${prefix}profile [@user]\`\n**Aliases:** \`${prefix}card\`, \`${prefix}rank\`\n**Features:** Level, XP bar, stats, rankings`, 
+        inline: false 
+      },
+      { 
+        name: `\`${prefix}userinfo\``, 
+        value: `View detailed user information and statistics\n**Usage:** \`${prefix}userinfo [@user]\`\n**Aliases:** \`${prefix}ui\`, \`${prefix}whois\``, 
         inline: false 
       },
       { 
@@ -160,7 +165,7 @@ function createHelpPages(prefix) {
     .addFields(
       { 
         name: '💡 Slash Commands Available', 
-        value: 'Use `/help` to see slash command versions with more features!\nSlash commands include `/mod` for moderation and `/stats` for statistics.', 
+        value: 'Use `/help` for slash commands!\nSlash commands: `/profile`, `/userinfo`, `/mod`, `/stats`, and more!', 
         inline: false 
       }
     )
@@ -206,6 +211,16 @@ function createHelpPages(prefix) {
       { 
         name: '🏅 Message Leaderboards', 
         value: 'View top message senders by total, daily, weekly, or monthly\nTrack active members and engagement levels', 
+        inline: false 
+      },
+      { 
+        name: '🎮 Gamification System', 
+        value: 'Level up by sending messages! Gain XP and climb ranks\nBeautiful profile cards with progress bars and badges', 
+        inline: false 
+      },
+      { 
+        name: '👤 User Profiles', 
+        value: 'Game-style profile cards with avatar, level, XP bar\nDetailed user info command with stats and permissions', 
         inline: false 
       },
       { 
