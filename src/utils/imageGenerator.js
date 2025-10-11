@@ -1,70 +1,68 @@
-const puppeteer = require('puppeteer');
+const fetch = require('node-fetch');
 
 class ImageGenerator {
     constructor() {
-        this.browser = null;
-    }
-
-    async init() {
-        if (!this.browser) {
-            const launchOptions = {
-                headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--disable-software-rasterizer'
-                ]
-            };
-
-            // Use Chrome installed by Heroku buildpack if available
-            // The chrome-for-testing buildpack installs Chrome at this path
-            if (process.env.CHROME_BIN) {
-                launchOptions.executablePath = process.env.CHROME_BIN;
-            } else if (process.env.DYNO) {
-                // On Heroku, the chrome-for-testing buildpack installs here
-                launchOptions.executablePath = '/app/.chrome-for-testing/chrome-linux64/chrome';
-            }
-
-            this.browser = await puppeteer.launch(launchOptions);
-        }
+        // HTMLCSSToImage API credentials
+        // Get free API key from https://htmlcsstoimage.com/
+        this.apiUserId = process.env.HCTI_USER_ID || '';
+        this.apiKey = process.env.HCTI_API_KEY || '';
+        this.apiUrl = 'https://hcti.io/v1/image';
     }
 
     async generateProfileCard(userData) {
-        await this.init();
-        
-        const page = await this.browser.newPage();
-        await page.setViewport({ width: 1100, height: 400 });
-        
         const html = this.getProfileTemplate(userData);
-        await page.setContent(html, { waitUntil: 'networkidle0' });
         
-        const screenshot = await page.screenshot({
-            type: 'png',
-            omitBackground: false
+        const data = {
+            html: html,
+            google_fonts: 'Inter:400,500,600,700,800'
+        };
+
+        const image = await fetch(this.apiUrl, {
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Basic ' + Buffer.from(this.apiUserId + ':' + this.apiKey).toString('base64')
+            }
         });
+
+        const response = await image.json();
         
-        await page.close();
-        return screenshot;
+        if (response.url) {
+            // Download the generated image
+            const imageResponse = await fetch(response.url);
+            return await imageResponse.buffer();
+        }
+        
+        throw new Error('Failed to generate image: ' + JSON.stringify(response));
     }
 
     async generateActivityCard(data) {
-        await this.init();
-        
-        const page = await this.browser.newPage();
-        await page.setViewport({ width: 1200, height: 600 });
-        
         const html = this.getActivityTemplate(data);
-        await page.setContent(html, { waitUntil: 'networkidle0' });
         
-        const screenshot = await page.screenshot({
-            type: 'png',
-            omitBackground: false
+        const requestData = {
+            html: html,
+            google_fonts: 'Poppins:400,600,700'
+        };
+
+        const image = await fetch(this.apiUrl, {
+            method: 'POST',
+            body: JSON.stringify(requestData),
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Basic ' + Buffer.from(this.apiUserId + ':' + this.apiKey).toString('base64')
+            }
         });
+
+        const response = await image.json();
         
-        await page.close();
-        return screenshot;
+        if (response.url) {
+            // Download the generated image
+            const imageResponse = await fetch(response.url);
+            return await imageResponse.buffer();
+        }
+        
+        throw new Error('Failed to generate image: ' + JSON.stringify(response));
     }
 
     getProfileTemplate(userData) {
@@ -566,13 +564,6 @@ class ImageGenerator {
             "'": '&#039;'
         };
         return text.replace(/[&<>"']/g, m => map[m]);
-    }
-
-    async close() {
-        if (this.browser) {
-            await this.browser.close();
-            this.browser = null;
-        }
     }
 }
 

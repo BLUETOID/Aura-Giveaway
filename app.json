@@ -27,6 +27,14 @@
       "description": "Bot command prefix",
       "value": "!",
       "required": false
+    },
+    "HCTI_USER_ID": {
+      "description": "HTMLCSSToImage User ID from https://htmlcsstoimage.com/",
+      "required": true
+    },
+    "HCTI_API_KEY": {
+      "description": "HTMLCSSToImage API Key from https://htmlcsstoimage.com/",
+      "required": true
     }
   },
   "formation": {
