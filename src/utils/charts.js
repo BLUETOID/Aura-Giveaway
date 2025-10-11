@@ -337,6 +337,338 @@ class ChartGenerator {
     this.chart.setConfig(config);
     return this.chart.getUrl();
   }
+
+  /**
+   * Generate a heat map for hourly activity patterns
+   * @param {Array} heatMapData - 2D array [days][hours] with activity counts
+   * @param {String} title - Chart title
+   * @param {String} type - 'messages' or 'voice'
+   * @returns {String} Chart URL
+   */
+  generateHeatMap(heatMapData, title = 'Activity Heat Map', type = 'messages') {
+    // Prepare data for matrix chart
+    const data = [];
+    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    // Get date labels for the past 7 days
+    const dates = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      dates.push(dayLabels[date.getDay()]);
+    }
+
+    // Convert heat map data to chart format
+    heatMapData.forEach((day, dayIndex) => {
+      day.forEach((value, hourIndex) => {
+        data.push({
+          x: hourIndex,
+          y: dayIndex,
+          v: value
+        });
+      });
+    });
+
+    // Find max value for color scaling
+    const maxValue = Math.max(...data.map(d => d.v), 1);
+
+    const config = {
+      type: 'matrix',
+      data: {
+        datasets: [{
+          label: type === 'messages' ? 'Messages' : 'Voice Minutes',
+          data: data,
+          backgroundColor: (context) => {
+            if (!context.raw) return 'rgba(200, 200, 200, 0.1)';
+            const value = context.raw.v;
+            const intensity = value / maxValue;
+            
+            if (type === 'messages') {
+              // Green gradient for messages
+              return `rgba(75, 192, 75, ${0.2 + intensity * 0.8})`;
+            } else {
+              // Purple gradient for voice
+              return `rgba(192, 75, 192, ${0.2 + intensity * 0.8})`;
+            }
+          },
+          borderColor: 'rgba(255, 255, 255, 0.3)',
+          borderWidth: 1,
+          width: ({ chart }) => (chart.chartArea || {}).width / 24 - 2,
+          height: ({ chart }) => (chart.chartArea || {}).height / 7 - 2
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: {
+            display: true,
+            text: title,
+            font: { size: 18, weight: 'bold' },
+            color: '#fff'
+          },
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              title: (context) => {
+                const point = context[0].raw;
+                const hour = point.x;
+                const day = dates[point.y];
+                return `${day} ${hour}:00`;
+              },
+              label: (context) => {
+                const value = context.raw.v;
+                return type === 'messages' 
+                  ? `${value} messages` 
+                  : `${Math.round(value)} voice minutes`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom',
+            min: -0.5,
+            max: 23.5,
+            ticks: {
+              stepSize: 1,
+              color: '#fff',
+              callback: (value) => {
+                if (value % 3 === 0) return `${value}:00`;
+                return '';
+              }
+            },
+            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+            title: {
+              display: true,
+              text: 'Hour of Day',
+              color: '#fff'
+            }
+          },
+          y: {
+            type: 'linear',
+            position: 'left',
+            min: -0.5,
+            max: 6.5,
+            ticks: {
+              stepSize: 1,
+              color: '#fff',
+              callback: (value) => dates[value] || ''
+            },
+            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+            title: {
+              display: true,
+              text: 'Day of Week',
+              color: '#fff'
+            }
+          }
+        }
+      }
+    };
+
+    this.chart.setConfig(config);
+    return this.chart.getUrl();
+  }
+
+  /**
+   * Generate an enhanced activity chart with gradient fill
+   * @param {Array} weeklyData - Array of daily stats
+   * @param {String} metric - 'messages', 'voice', or 'members'
+   * @returns {String} Chart URL
+   */
+  generateEnhancedActivityChart(weeklyData, metric = 'messages') {
+    const labels = weeklyData.map(day => {
+      const date = new Date(day.date);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+
+    let data, color, label;
+    
+    switch (metric) {
+      case 'voice':
+        data = weeklyData.map(d => Math.round(d.voiceMinutes / 60 * 10) / 10);
+        color = { r: 192, g: 75, b: 192 };
+        label = 'Voice Hours';
+        break;
+      case 'members':
+        data = weeklyData.map(d => d.joins - d.leaves);
+        color = { r: 54, g: 162, b: 235 };
+        label = 'Net Member Change';
+        break;
+      default:
+        data = weeklyData.map(d => d.messages);
+        color = { r: 75, g: 192, b: 75 };
+        label = 'Messages';
+    }
+
+    const config = {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: label,
+          data: data,
+          borderColor: `rgb(${color.r}, ${color.g}, ${color.b})`,
+          backgroundColor: {
+            type: 'linear',
+            x0: 0,
+            y0: 0,
+            x1: 0,
+            y1: 400,
+            colorStops: [
+              { offset: 0, color: `rgba(${color.r}, ${color.g}, ${color.b}, 0.4)` },
+              { offset: 1, color: `rgba(${color.r}, ${color.g}, ${color.b}, 0.0)` }
+            ]
+          },
+          fill: true,
+          tension: 0.4,
+          borderWidth: 3,
+          pointRadius: 5,
+          pointHoverRadius: 8,
+          pointBackgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})`,
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: `rgb(${color.r}, ${color.g}, ${color.b})`,
+          pointHoverBorderWidth: 3
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: {
+            display: true,
+            text: `${label} - Last 7 Days`,
+            font: { size: 20, weight: 'bold' },
+            color: '#fff',
+            padding: 20
+          },
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            titleColor: '#fff',
+            bodyColor: '#fff',
+            padding: 12,
+            displayColors: false,
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                return `${label}: ${value.toLocaleString()}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { 
+              color: 'rgba(255, 255, 255, 0.1)',
+              drawBorder: false
+            },
+            ticks: { 
+              color: '#fff',
+              font: { size: 12 }
+            }
+          },
+          y: {
+            beginAtZero: true,
+            grid: { 
+              color: 'rgba(255, 255, 255, 0.1)',
+              drawBorder: false
+            },
+            ticks: { 
+              color: '#fff',
+              font: { size: 12 }
+            }
+          }
+        }
+      }
+    };
+
+    this.chart.setConfig(config);
+    return this.chart.getUrl();
+  }
+
+  /**
+   * Generate a user activity profile chart
+   * @param {Object} userData - User's activity data
+   * @returns {String} Chart URL
+   */
+  generateUserProfileChart(userData) {
+    const labels = ['Total', 'Monthly', 'Weekly', 'Daily'];
+    const data = [
+      userData.messages.total,
+      userData.messages.monthly,
+      userData.messages.weekly,
+      userData.messages.daily
+    ];
+
+    const config = {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Messages',
+          data: data,
+          backgroundColor: [
+            'rgba(255, 206, 86, 0.8)',
+            'rgba(75, 192, 192, 0.8)',
+            'rgba(153, 102, 255, 0.8)',
+            'rgba(255, 99, 132, 0.8)'
+          ],
+          borderColor: [
+            'rgb(255, 206, 86)',
+            'rgb(75, 192, 192)',
+            'rgb(153, 102, 255)',
+            'rgb(255, 99, 132)'
+          ],
+          borderWidth: 2,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: {
+            display: true,
+            text: `${userData.username}'s Message Activity`,
+            font: { size: 18, weight: 'bold' },
+            color: '#fff'
+          },
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            callbacks: {
+              label: (context) => `${context.parsed.y.toLocaleString()} messages`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+            ticks: { color: '#fff', font: { size: 12 } }
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+            ticks: { 
+              color: '#fff',
+              font: { size: 12 },
+              callback: (value) => value.toLocaleString()
+            }
+          }
+        }
+      }
+    };
+
+    this.chart.setConfig(config);
+    return this.chart.getUrl();
+  }
 }
 
 module.exports = ChartGenerator;

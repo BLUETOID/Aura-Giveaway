@@ -85,6 +85,17 @@ class StatisticsManager {
       const todayStats = stats.getTodayStats();
       todayStats.messages.total++;
       
+      // Track hourly activity for heat maps
+      const currentHour = new Date().getHours();
+      if (!todayStats.hourlyActivity) {
+        todayStats.hourlyActivity = {
+          messages: Array(24).fill(0),
+          voiceMinutes: Array(24).fill(0),
+          membersOnline: Array(24).fill(0)
+        };
+      }
+      todayStats.hourlyActivity.messages[currentHour]++;
+      
       // Track by channel
       if (channelId) {
         const currentCount = todayStats.messages.byChannel.get(channelId) || 0;
@@ -326,6 +337,139 @@ class StatisticsManager {
     } catch (error) {
       console.error('❌ Error fetching all guild stats:', error.message);
       return [];
+    }
+  }
+
+  // ========================================
+  // USER PROFILE METHODS
+  // ========================================
+
+  async getUserProfile(guildId, userId) {
+    try {
+      return await UserStats.findOne({ guildId, userId });
+    } catch (error) {
+      console.error('❌ Error getting user profile:', error.message);
+      return null;
+    }
+  }
+
+  async getUserLeaderboardRank(guildId, userId) {
+    try {
+      const userStats = await UserStats.findOne({ guildId, userId });
+      if (!userStats) return null;
+
+      const usersWithMoreMessages = await UserStats.countDocuments({
+        guildId,
+        'messages.total': { $gt: userStats.messages.total }
+      });
+
+      return {
+        rank: usersWithMoreMessages + 1,
+        total: userStats.messages.total
+      };
+    } catch (error) {
+      console.error('❌ Error getting user rank:', error.message);
+      return null;
+    }
+  }
+
+  async updateUserGiveawayStats(guildId, userId, type = 'entered') {
+    try {
+      const updateField = type === 'entered' ? 'giveawaysEntered' : 'giveawaysWon';
+      
+      await UserStats.findOneAndUpdate(
+        { guildId, userId },
+        { $inc: { [updateField]: 1 } },
+        { upsert: true, new: true }
+      );
+    } catch (error) {
+      console.error('❌ Error updating user giveaway stats:', error.message);
+    }
+  }
+
+  // ========================================
+  // HEAT MAP METHODS
+  // ========================================
+
+  async getHeatMapData(guildId, days = 7) {
+    try {
+      const stats = await this.getGuildStats(guildId);
+      if (!stats) return this.getEmptyHeatMap(days);
+
+      const recentStats = stats.getLastNDaysStats(days);
+      const heatMap = [];
+
+      for (let i = 0; i < days; i++) {
+        const dayStat = recentStats[i];
+        
+        // Find the full stat object to get hourly data
+        const fullStat = stats.dailyStats.find(s => s.date === dayStat.date);
+        
+        if (fullStat && fullStat.hourlyActivity && fullStat.hourlyActivity.messages) {
+          heatMap.push(fullStat.hourlyActivity.messages);
+        } else {
+          heatMap.push(Array(24).fill(0));
+        }
+      }
+
+      return heatMap;
+    } catch (error) {
+      console.error('❌ Error getting heat map data:', error.message);
+      return this.getEmptyHeatMap(days);
+    }
+  }
+
+  async getVoiceHeatMapData(guildId, days = 7) {
+    try {
+      const stats = await this.getGuildStats(guildId);
+      if (!stats) return this.getEmptyHeatMap(days);
+
+      const recentStats = stats.getLastNDaysStats(days);
+      const heatMap = [];
+
+      for (let i = 0; i < days; i++) {
+        const dayStat = recentStats[i];
+        const fullStat = stats.dailyStats.find(s => s.date === dayStat.date);
+        
+        if (fullStat && fullStat.hourlyActivity && fullStat.hourlyActivity.voiceMinutes) {
+          heatMap.push(fullStat.hourlyActivity.voiceMinutes);
+        } else {
+          heatMap.push(Array(24).fill(0));
+        }
+      }
+
+      return heatMap;
+    } catch (error) {
+      console.error('❌ Error getting voice heat map data:', error.message);
+      return this.getEmptyHeatMap(days);
+    }
+  }
+
+  getEmptyHeatMap(days) {
+    return Array(days).fill().map(() => Array(24).fill(0));
+  }
+
+  async getUserActivityPattern(guildId, userId, days = 7) {
+    try {
+      const stats = await this.getGuildStats(guildId);
+      if (!stats) return { hourly: Array(24).fill(0), daily: Array(7).fill(0) };
+
+      const recentStats = stats.getLastNDaysStats(days);
+      const hourlyPattern = Array(24).fill(0);
+      const dailyPattern = Array(days).fill(0);
+
+      recentStats.forEach((dayStat, dayIndex) => {
+        const fullStat = stats.dailyStats.find(s => s.date === dayStat.date);
+        if (fullStat && fullStat.messages.byUser) {
+          const userMessages = fullStat.messages.byUser.get(userId) || 0;
+          dailyPattern[dayIndex] = userMessages;
+        }
+      });
+
+      return { hourly: hourlyPattern, daily: dailyPattern };
+    } catch (error) {
+      console.error('❌ Error getting user activity pattern:', error.message);
+      return { hourly: Array(24).fill(0), daily: Array(7).fill(0) };
     }
   }
 }

@@ -120,6 +120,11 @@ function createHelpPages(prefix) {
         name: `\`${prefix}stats leaderboard\``, 
         value: `Top message senders on the server\n**Usage:** \`${prefix}stats leaderboard [period] [limit]\`\n**Periods:** total, daily, weekly, monthly (default: total)\n**Limit:** 1-25 users (default: 10)\n**Example:** \`${prefix}stats leaderboard weekly 15\``, 
         inline: false 
+      },
+      { 
+        name: `\`${prefix}stats profile\``, 
+        value: `Detailed user statistics and rankings\n**Usage:** \`${prefix}stats profile [@user]\`\n**Example:** \`${prefix}stats profile @username\`\n**Note:** Defaults to your own profile if no user mentioned`, 
+        inline: false 
       }
     )
     .setFooter({ text: `Page 2 of 4 • Current prefix: ${prefix}` })

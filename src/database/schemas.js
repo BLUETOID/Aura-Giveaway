@@ -116,7 +116,23 @@ const statisticsSchema = new mongoose.Schema({
             },
             totalMinutes: { type: Number, default: 0 }
         },
-        peakOnline: { type: Number, default: 0 }
+        peakOnline: { type: Number, default: 0 },
+        
+        // Hourly activity tracking for heat maps
+        hourlyActivity: {
+            messages: { 
+                type: [Number], 
+                default: () => Array(24).fill(0) 
+            },
+            voiceMinutes: { 
+                type: [Number], 
+                default: () => Array(24).fill(0) 
+            },
+            membersOnline: { 
+                type: [Number], 
+                default: () => Array(24).fill(0) 
+            }
+        }
     }],
     lastUpdated: {
         type: Date,
