@@ -172,8 +172,8 @@ class CanvasGenerator {
    * Generate daily stats summary image (text-based, replaces embed)
    */
   async generateDailyStatsImage(data) {
-    const width = 800;
-    const height = 500;
+    const width = 900;
+    const height = 650;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
 
@@ -192,54 +192,51 @@ class CanvasGenerator {
 
     // Title
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 32px sans-serif';
+    ctx.font = 'bold 36px sans-serif';
     ctx.fillText('📅 Daily Statistics', 50, 70);
 
     // Date
     ctx.fillStyle = '#999999';
-    ctx.font = '20px sans-serif';
+    ctx.font = '22px sans-serif';
     ctx.fillText(data.date || 'Today', 50, 105);
 
-    let y = 160;
+    // Row 1: Member Activity
+    this.drawDarkStatBox(ctx, 50, 140, 250, 110, '📥 Joins', data.joins?.toString() || '0');
+    this.drawDarkStatBox(ctx, 325, 140, 250, 110, '📤 Leaves', data.leaves?.toString() || '0');
+    this.drawDarkStatBox(ctx, 600, 140, 250, 110, '📊 Net Growth', `${data.netGrowth > 0 ? '+' : ''}${data.netGrowth || 0}`);
 
-    // Member Activity Section
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('👥 Member Activity', 50, y);
-    y += 35;
+    // Row 2: Online & Messages
+    this.drawDarkStatBox(ctx, 50, 280, 250, 110, '🟢 Peak Online', data.peakOnline?.toString() || '0');
+    this.drawDarkStatBox(ctx, 325, 280, 250, 110, '👤 Active Members', data.activeMembers?.toString() || 'N/A');
+    this.drawDarkStatBox(ctx, 600, 280, 250, 110, '💬 Total Messages', data.messages?.toLocaleString() || '0');
 
-    ctx.fillStyle = '#cccccc';
-    ctx.font = '18px sans-serif';
-    ctx.fillText(`📥 Joins: ${data.joins || 0}`, 70, y);
-    ctx.fillText(`📤 Leaves: ${data.leaves || 0}`, 300, y);
-    y += 30;
-    ctx.fillText(`📊 Net Growth: ${data.netGrowth > 0 ? '+' : ''}${data.netGrowth || 0}`, 70, y);
-    ctx.fillText(`🟢 Peak Online: ${data.maxOnline || 0}`, 300, y);
-    y += 50;
+    // Row 3: Message Details
+    const avgMsgPerHour = Math.round((data.messages || 0) / 24);
+    this.drawDarkStatBox(ctx, 50, 420, 250, 110, '⏱️ Avg/Hour', avgMsgPerHour.toString());
+    
+    const peakHour = data.peakHour || 'N/A';
+    this.drawDarkStatBox(ctx, 325, 420, 250, 110, '📈 Peak Hour', peakHour);
+    
+    this.drawDarkStatBox(ctx, 600, 420, 250, 110, '🎤 Voice Hours', data.voiceHours?.toString() || '0');
 
-    // Message Activity Section
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('💬 Message Activity', 50, y);
-    y += 35;
-
-    ctx.fillStyle = '#cccccc';
-    ctx.font = '18px sans-serif';
-    ctx.fillText(`Total: ${data.totalMessages?.toLocaleString() || '0'} messages`, 70, y);
-    y += 30;
-    ctx.fillText(`Hourly Avg: ${data.avgMessages || 0}`, 70, y);
-    y += 50;
-
-    // Voice Activity Section
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('🎤 Voice Activity', 50, y);
-    y += 35;
-
-    ctx.fillStyle = '#cccccc';
-    ctx.font = '18px sans-serif';
-    ctx.fillText(`Total: ${data.voiceHours || 0} hours`, 70, y);
-    ctx.fillText(`Minutes: ${data.voiceMinutes?.toLocaleString() || '0'}`, 300, y);
+    // Bottom info bar
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(50, 560, 800, 50);
+    ctx.strokeStyle = '#404040';
+    ctx.strokeRect(50, 560, 800, 50);
+    
+    ctx.fillStyle = '#4ade80';
+    ctx.font = 'bold 18px sans-serif';
+    const engagementRate = data.activeMembers && data.peakOnline ? 
+      ((data.activeMembers / data.peakOnline) * 100).toFixed(1) : '0';
+    ctx.fillText(`📊 Engagement Rate: ${engagementRate}%`, 70, 593);
+    
+    ctx.fillStyle = '#999999';
+    ctx.fillText('|', 400, 593);
+    
+    ctx.fillStyle = '#fbbf24';
+    const activityLevel = data.messages > 500 ? 'High Activity' : data.messages > 100 ? 'Moderate' : 'Low Activity';
+    ctx.fillText(`⚡ Activity: ${activityLevel}`, 430, 593);
 
     return canvas.toBuffer('image/png');
   }
@@ -269,8 +266,8 @@ class CanvasGenerator {
    * Generate weekly stats summary image (text-based)
    */
   async generateWeeklyStatsImage(data) {
-    const width = 800;
-    const height = 500;
+    const width = 900;
+    const height = 650;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
 
@@ -283,49 +280,63 @@ class CanvasGenerator {
     ctx.strokeRect(20, 20, width - 40, height - 40);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 32px sans-serif';
+    ctx.font = 'bold 36px sans-serif';
     ctx.fillText('📊 Weekly Statistics', 50, 70);
     ctx.fillStyle = '#999999';
-    ctx.font = '20px sans-serif';
-    ctx.fillText('Last 7 Days', 50, 105);
+    ctx.font = '22px sans-serif';
+    ctx.fillText('Last 7 Days • Comprehensive Overview', 50, 105);
 
-    let y = 160;
+    // Row 1: Member Growth
+    this.drawDarkStatBox(ctx, 50, 140, 250, 110, '📥 Joins', data.totalJoins?.toString() || '0');
+    ctx.fillStyle = '#4ade80';
+    ctx.font = '16px sans-serif';
+    ctx.fillText(`+${Math.round(data.totalJoins / 7)}/day`, 70, 235);
 
-    // Member Growth
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('👥 Member Growth', 50, y);
-    y += 35;
-    ctx.fillStyle = '#cccccc';
-    ctx.font = '18px sans-serif';
-    ctx.fillText(`Joins: ${data.totalJoins || 0}`, 70, y);
-    ctx.fillText(`Leaves: ${data.totalLeaves || 0}`, 300, y);
-    y += 30;
-    ctx.fillText(`Net: ${data.netGrowth > 0 ? '+' : ''}${data.netGrowth || 0}`, 70, y);
-    y += 50;
+    this.drawDarkStatBox(ctx, 325, 140, 250, 110, '📤 Leaves', data.totalLeaves?.toString() || '0');
+    ctx.fillStyle = '#f87171';
+    ctx.font = '16px sans-serif';
+    ctx.fillText(`-${Math.round(data.totalLeaves / 7)}/day`, 345, 235);
 
-    // Message Activity
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('💬 Message Activity', 50, y);
-    y += 35;
-    ctx.fillStyle = '#cccccc';
-    ctx.font = '18px sans-serif';
-    ctx.fillText(`Total: ${data.totalMessages?.toLocaleString() || '0'}`, 70, y);
-    y += 30;
-    ctx.fillText(`Daily Avg: ${data.avgMessages?.toLocaleString() || '0'}`, 70, y);
-    ctx.fillText(`Peak: ${data.peakMessages?.toLocaleString() || '0'}`, 300, y);
-    y += 50;
+    this.drawDarkStatBox(ctx, 600, 140, 250, 110, '📊 Net Growth', `${data.netGrowth > 0 ? '+' : ''}${data.netGrowth || 0}`);
+    const growthPercentage = data.netGrowth > 0 ? '↗ Growing' : data.netGrowth < 0 ? '↘ Declining' : '→ Stable';
+    ctx.fillStyle = data.netGrowth > 0 ? '#4ade80' : data.netGrowth < 0 ? '#f87171' : '#999999';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(growthPercentage, 620, 235);
 
-    // Voice Activity
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('🎤 Voice Activity', 50, y);
-    y += 35;
-    ctx.fillStyle = '#cccccc';
-    ctx.font = '18px sans-serif';
-    ctx.fillText(`Total: ${data.totalVoice || '0'} hours`, 70, y);
-    ctx.fillText(`Daily Avg: ${data.avgVoice || '0'} hours`, 300, y);
+    // Row 2: Messages
+    this.drawDarkStatBox(ctx, 50, 280, 250, 110, '💬 Total Messages', data.totalMessages?.toLocaleString() || '0');
+    this.drawDarkStatBox(ctx, 325, 280, 250, 110, '📈 Daily Average', data.avgMessages?.toLocaleString() || '0');
+    this.drawDarkStatBox(ctx, 600, 280, 250, 110, '⚡ Peak Day', data.peakMessages?.toLocaleString() || '0');
+
+    // Row 3: Voice & Online
+    this.drawDarkStatBox(ctx, 50, 420, 250, 110, '🎤 Voice Hours', `${data.totalVoiceHours || '0'}h`);
+    ctx.fillStyle = '#999999';
+    ctx.font = '16px sans-serif';
+    ctx.fillText(`${data.avgVoiceHours || '0'}h/day avg`, 70, 515);
+
+    this.drawDarkStatBox(ctx, 325, 420, 250, 110, '🟢 Peak Online', data.peakOnline?.toString() || '0');
+    this.drawDarkStatBox(ctx, 600, 420, 250, 110, '📊 Avg Online', Math.round(data.avgOnline || 0).toString());
+
+    // Bottom insights bar
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(50, 560, 800, 50);
+    ctx.strokeStyle = '#404040';
+    ctx.strokeRect(50, 560, 800, 50);
+    
+    const growthTrend = data.netGrowth > 20 ? '🚀 Excellent Growth' : 
+                        data.netGrowth > 0 ? '📈 Positive Trend' : 
+                        data.netGrowth === 0 ? '➖ Stable' : '📉 Needs Attention';
+    const activityTrend = data.totalMessages > 3500 ? 'High Activity' : data.totalMessages > 700 ? 'Moderate Activity' : 'Low Activity';
+    
+    ctx.fillStyle = '#4ade80';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillText(`${growthTrend}`, 70, 593);
+    
+    ctx.fillStyle = '#999999';
+    ctx.fillText('|', 400, 593);
+    
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillText(`⚡ ${activityTrend}`, 430, 593);
 
     return canvas.toBuffer('image/png');
   }
@@ -356,8 +367,8 @@ class CanvasGenerator {
    * Generate monthly stats summary image (text-based)
    */
   async generateMonthlyStatsImage(data) {
-    const width = 800;
-    const height = 500;
+    const width = 900;
+    const height = 650;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
 
@@ -370,46 +381,58 @@ class CanvasGenerator {
     ctx.strokeRect(20, 20, width - 40, height - 40);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 32px sans-serif';
+    ctx.font = 'bold 36px sans-serif';
     ctx.fillText('📊 Monthly Statistics', 50, 70);
     ctx.fillStyle = '#999999';
-    ctx.font = '20px sans-serif';
-    ctx.fillText('Last 30 Days', 50, 105);
+    ctx.font = '22px sans-serif';
+    ctx.fillText('Last 30 Days • Complete Monthly Overview', 50, 105);
 
-    let y = 160;
+    // Row 1: Member Growth
+    this.drawDarkStatBox(ctx, 50, 140, 250, 110, '📥 Total Joins', data.totalJoins?.toString() || '0');
+    ctx.fillStyle = '#4ade80';
+    ctx.font = '16px sans-serif';
+    ctx.fillText(`+${Math.round(data.totalJoins / 30)}/day`, 70, 235);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('👥 Member Growth', 50, y);
-    y += 35;
-    ctx.fillStyle = '#cccccc';
-    ctx.font = '18px sans-serif';
-    ctx.fillText(`Joins: ${data.totalJoins || 0}`, 70, y);
-    ctx.fillText(`Leaves: ${data.totalLeaves || 0}`, 300, y);
-    y += 30;
-    ctx.fillText(`Net: ${data.netGrowth > 0 ? '+' : ''}${data.netGrowth || 0}`, 70, y);
-    y += 50;
+    this.drawDarkStatBox(ctx, 325, 140, 250, 110, '📤 Total Leaves', data.totalLeaves?.toString() || '0');
+    ctx.fillStyle = '#f87171';
+    ctx.font = '16px sans-serif';
+    ctx.fillText(`-${Math.round(data.totalLeaves / 30)}/day`, 345, 235);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('💬 Message Activity', 50, y);
-    y += 35;
-    ctx.fillStyle = '#cccccc';
-    ctx.font = '18px sans-serif';
-    ctx.fillText(`Total: ${data.totalMessages?.toLocaleString() || '0'}`, 70, y);
-    y += 30;
-    ctx.fillText(`Daily Avg: ${data.avgMessages?.toLocaleString() || '0'}`, 70, y);
-    ctx.fillText(`Peak: ${data.peakMessages?.toLocaleString() || '0'}`, 300, y);
-    y += 50;
+    this.drawDarkStatBox(ctx, 600, 140, 250, 110, '📊 Net Growth', `${data.netGrowth > 0 ? '+' : ''}${data.netGrowth || 0}`);
+    const monthlyTrend = data.netGrowth > 50 ? '🚀 Excellent' : data.netGrowth > 0 ? '📈 Growing' : data.netGrowth === 0 ? '➖ Stable' : '📉 Declining';
+    ctx.fillStyle = data.netGrowth > 0 ? '#4ade80' : data.netGrowth < 0 ? '#f87171' : '#999999';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(monthlyTrend, 620, 235);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('🎤 Voice Activity', 50, y);
-    y += 35;
-    ctx.fillStyle = '#cccccc';
-    ctx.font = '18px sans-serif';
-    ctx.fillText(`Total: ${data.totalVoice || '0'} hours`, 70, y);
-    ctx.fillText(`Daily Avg: ${data.avgVoice || '0'} hours`, 300, y);
+    // Row 2: Messages
+    this.drawDarkStatBox(ctx, 50, 280, 250, 110, '💬 Total Messages', data.totalMessages?.toLocaleString() || '0');
+    this.drawDarkStatBox(ctx, 325, 280, 250, 110, '📈 Daily Average', data.avgMessages?.toLocaleString() || '0');
+    this.drawDarkStatBox(ctx, 600, 280, 250, 110, '⚡ Peak Day', data.peakMessages?.toLocaleString() || '0');
+
+    // Row 3: Voice & Activity
+    this.drawDarkStatBox(ctx, 50, 420, 250, 110, '🎤 Voice Hours', `${data.totalVoiceHours || '0'}h`);
+    ctx.fillStyle = '#999999';
+    ctx.font = '16px sans-serif';
+    ctx.fillText(`${data.avgVoiceHours || '0'}h/day avg`, 70, 515);
+
+    this.drawDarkStatBox(ctx, 325, 420, 250, 110, '🟢 Peak Online', data.peakOnline?.toString() || '0');
+    
+    const consistencyScore = data.totalMessages > 15000 ? '⭐ High' : data.totalMessages > 5000 ? '✓ Good' : '○ Fair';
+    this.drawDarkStatBox(ctx, 600, 420, 250, 110, '📊 Consistency', consistencyScore);
+
+    // Bottom insights bar
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(50, 560, 800, 50);
+    ctx.strokeStyle = '#404040';
+    ctx.strokeRect(50, 560, 800, 50);
+    
+    const projectedGrowth = Math.round((data.netGrowth / 30) * 365);
+    const growthProjection = projectedGrowth > 0 ? `📈 Projected Annual Growth: +${projectedGrowth}` : 
+                             projectedGrowth < 0 ? `📉 Projected Annual: ${projectedGrowth}` : '➖ Stable Trend';
+    
+    ctx.fillStyle = projectedGrowth > 0 ? '#4ade80' : projectedGrowth < 0 ? '#f87171' : '#999999';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillText(growthProjection, 70, 593);
 
     return canvas.toBuffer('image/png');
   }
@@ -439,11 +462,12 @@ class CanvasGenerator {
    * Generate member stats summary image (text-based)
    */
   async generateMemberStatsImage(data) {
-    const width = 800;
-    const height = 500;
+    const width = 900;
+    const height = 600;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
 
+    // Background
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = '#1a1a1a';
@@ -452,49 +476,62 @@ class CanvasGenerator {
     ctx.lineWidth = 2;
     ctx.strokeRect(20, 20, width - 40, height - 40);
 
+    // Title
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 32px sans-serif';
-    ctx.fillText('👥 Member Growth', 50, 70);
+    ctx.font = 'bold 36px sans-serif';
+    ctx.fillText('👥 Member Growth Analytics', 50, 70);
     ctx.fillStyle = '#999999';
-    ctx.font = '20px sans-serif';
-    ctx.fillText('Last 7 Days', 50, 105);
+    ctx.font = '22px sans-serif';
+    ctx.fillText('Last 7 Days • Detailed Growth Metrics', 50, 105);
 
-    let y = 160;
+    // Row 1: Current Status
+    this.drawDarkStatBox(ctx, 50, 140, 380, 110, '📊 Current Members', data.currentMembers?.toLocaleString() || '0');
+    ctx.fillStyle = '#4ade80';
+    ctx.font = 'bold 18px sans-serif';
+    const growthText = `${data.netGrowth > 0 ? '↗' : data.netGrowth < 0 ? '↘' : '→'} ${data.netGrowth > 0 ? '+' : ''}${data.netGrowth || 0} (${data.growthRate || '0'}%)`;
+    ctx.fillText(growthText, 70, 230);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('📊 Current Status', 50, y);
-    y += 35;
+    this.drawDarkStatBox(ctx, 470, 140, 380, 110, '📈 All-Time Statistics', '');
     ctx.fillStyle = '#cccccc';
     ctx.font = '18px sans-serif';
-    ctx.fillText(`Total Members: ${data.currentMembers?.toLocaleString() || '0'}`, 70, y);
-    y += 30;
-    ctx.fillText(`Growth Rate: ${data.growthRate || '0'}%`, 70, y);
-    ctx.fillText(`Net Change: ${data.netGrowth > 0 ? '+' : ''}${data.netGrowth || 0}`, 300, y);
-    y += 50;
+    ctx.fillText(`Total Joins: ${data.allTimeJoins?.toLocaleString() || '0'}`, 490, 210);
+    ctx.fillText(`Total Leaves: ${data.allTimeLeaves?.toLocaleString() || '0'}`, 490, 235);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('📥 Join Statistics', 50, y);
-    y += 35;
-    ctx.fillStyle = '#cccccc';
-    ctx.font = '18px sans-serif';
-    ctx.fillText(`Total Joins: ${data.totalJoins || 0}`, 70, y);
-    ctx.fillText(`Daily Avg: ${data.avgJoins || 0}`, 300, y);
-    y += 30;
-    ctx.fillText(`Best Day: ${data.bestJoinDay || 0}`, 70, y);
-    y += 50;
+    // Row 2: Join Stats
+    this.drawDarkStatBox(ctx, 50, 280, 250, 130, '📥 Total Joins', data.totalJoins?.toString() || '0');
+    ctx.fillStyle = '#999999';
+    ctx.font = '16px sans-serif';
+    ctx.fillText(`Avg: ${data.avgJoins || 0}/day`, 70, 390);
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('📤 Leave Statistics', 50, y);
-    y += 35;
-    ctx.fillStyle = '#cccccc';
-    ctx.font = '18px sans-serif';
-    ctx.fillText(`Total Leaves: ${data.totalLeaves || 0}`, 70, y);
-    ctx.fillText(`Daily Avg: ${data.avgLeaves || 0}`, 300, y);
-    y += 30;
-    ctx.fillText(`Retention: ${data.retention || '0'}%`, 70, y);
+    this.drawDarkStatBox(ctx, 325, 280, 250, 130, '🏆 Best Join Day', data.bestDay?.toString() || '0');
+    ctx.fillStyle = '#999999';
+    ctx.font = '16px sans-serif';
+    ctx.fillText('Peak performance', 345, 390);
+
+    this.drawDarkStatBox(ctx, 600, 280, 250, 130, '📊 Join Rate', `${((data.totalJoins || 0) / 7).toFixed(1)}/day`);
+    ctx.fillStyle = '#999999';
+    ctx.font = '16px sans-serif';
+    ctx.fillText('Weekly average', 620, 390);
+
+    // Row 3: Leave Stats
+    this.drawDarkStatBox(ctx, 50, 440, 250, 130, '📤 Total Leaves', data.totalLeaves?.toString() || '0');
+    ctx.fillStyle = '#999999';
+    ctx.font = '16px sans-serif';
+    ctx.fillText(`Avg: ${data.avgLeaves || 0}/day`, 70, 550);
+
+    this.drawDarkStatBox(ctx, 325, 440, 250, 130, '✨ Retention Rate', `${data.retention || '0'}%`);
+    ctx.fillStyle = data.retention >= 80 ? '#4ade80' : data.retention >= 50 ? '#fbbf24' : '#f87171';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(data.retention >= 80 ? 'Excellent' : data.retention >= 50 ? 'Good' : 'Needs Attention', 345, 550);
+
+    this.drawDarkStatBox(ctx, 600, 440, 250, 130, '⚖️ Growth Balance', '');
+    const balance = ((data.totalJoins || 0) - (data.totalLeaves || 0));
+    ctx.fillStyle = balance > 0 ? '#4ade80' : balance < 0 ? '#f87171' : '#999999';
+    ctx.font = 'bold 26px sans-serif';
+    ctx.fillText(`${balance > 0 ? '+' : ''}${balance}`, 620, 510);
+    ctx.fillStyle = '#999999';
+    ctx.font = '16px sans-serif';
+    ctx.fillText('Net this week', 620, 550);
 
     return canvas.toBuffer('image/png');
   }
@@ -525,8 +562,8 @@ class CanvasGenerator {
    * Generate activity stats summary image (text-based)
    */
   async generateActivityStatsImage(data) {
-    const width = 800;
-    const height = 500;
+    const width = 900;
+    const height = 600;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
 
@@ -539,20 +576,48 @@ class CanvasGenerator {
     ctx.strokeRect(20, 20, width - 40, height - 40);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 32px sans-serif';
+    ctx.font = 'bold 36px sans-serif';
     ctx.fillText('📈 Server Activity', 50, 70);
     ctx.fillStyle = '#999999';
-    ctx.font = '20px sans-serif';
-    ctx.fillText('Last 24 Hours', 50, 105);
+    ctx.font = '22px sans-serif';
+    ctx.fillText('Comprehensive Activity Analysis', 50, 105);
 
-    let y = 180;
+    // Row 1: Message Stats
+    this.drawDarkStatBox(ctx, 50, 150, 250, 110, '💬 Total Messages', data.totalMessages?.toLocaleString() || '0');
+    this.drawDarkStatBox(ctx, 325, 150, 250, 110, '📊 Daily Average', data.avgMessages?.toLocaleString() || '0');
+    this.drawDarkStatBox(ctx, 600, 150, 250, 110, '⏱️ Hourly Avg', data.hourlyAvg?.toString() || '0');
 
-    this.drawDarkStatBox(ctx, 50, y, 330, 90, '💬 Total Messages', data.totalMessages?.toLocaleString() || '0');
-    this.drawDarkStatBox(ctx, 420, y, 330, 90, '🎤 Voice Hours', (data.totalVoice?.toFixed(1) || '0') + 'h');
-    
-    y += 120;
-    this.drawDarkStatBox(ctx, 50, y, 330, 90, '📊 Peak Hour', data.peakHour || 'N/A');
-    this.drawDarkStatBox(ctx, 420, y, 330, 90, '👥 Active Members', data.activeMembers?.toString() || '0');
+    // Row 2: Peak Stats
+    this.drawDarkStatBox(ctx, 50, 290, 250, 110, '⚡ Peak Hour', data.peakHour || 'N/A');
+    ctx.fillStyle = '#999999';
+    ctx.font = '16px sans-serif';
+    ctx.fillText(`${data.peakMessages || 0} msgs`, 70, 385);
+
+    this.drawDarkStatBox(ctx, 325, 290, 250, 110, '📅 Peak Day', data.peakDay || 'N/A');
+    ctx.fillStyle = '#999999';
+    ctx.font = '16px sans-serif';
+    ctx.fillText(`${data.peakDayMessages?.toLocaleString() || 0} msgs`, 345, 385);
+
+    this.drawDarkStatBox(ctx, 600, 290, 250, 110, '👥 Active Members', data.activeMembers?.toString() || '0');
+
+    // Row 3: Voice & Engagement
+    this.drawDarkStatBox(ctx, 50, 430, 250, 110, '🎤 Voice Hours', `${data.totalVoiceHours || '0'}h`);
+    ctx.fillStyle = '#999999';
+    ctx.font = '16px sans-serif';
+    ctx.fillText(`${data.avgVoiceHours || '0'}h/day avg`, 70, 525);
+
+    this.drawDarkStatBox(ctx, 325, 430, 250, 110, '🟢 Peak Online', data.peakOnline?.toString() || '0');
+    ctx.fillStyle = '#999999';
+    ctx.font = '16px sans-serif';
+    ctx.fillText(`${data.avgPeakOnline || 0} avg`, 345, 525);
+
+    const engagementRate = data.activeMembers && data.peakOnline ? 
+      ((data.activeMembers / data.peakOnline) * 100).toFixed(1) : '0';
+    this.drawDarkStatBox(ctx, 600, 430, 250, 110, '📊 Engagement', `${engagementRate}%`);
+    const engagementLevel = parseFloat(engagementRate) > 50 ? 'High' : parseFloat(engagementRate) > 25 ? 'Good' : 'Fair';
+    ctx.fillStyle = parseFloat(engagementRate) > 50 ? '#4ade80' : parseFloat(engagementRate) > 25 ? '#fbbf24' : '#999999';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(engagementLevel, 620, 525);
 
     return canvas.toBuffer('image/png');
   }
@@ -666,7 +731,7 @@ class CanvasGenerator {
    */
   async generateLineChart(config) {
     const width = 1000;
-    const height = 500;
+    const height = 550;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
 
@@ -674,27 +739,30 @@ class CanvasGenerator {
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, width, height);
 
-    // Main card - Dark gray
-    ctx.fillStyle = '#1a1a1a';
+    // Main card - Dark gray with subtle gradient
+    const bgGradient = ctx.createLinearGradient(0, 20, 0, height - 20);
+    bgGradient.addColorStop(0, '#1a1a1a');
+    bgGradient.addColorStop(1, '#151515');
+    ctx.fillStyle = bgGradient;
     ctx.fillRect(20, 20, width - 40, height - 40);
     
-    // Border
+    // Border with glow effect
     ctx.strokeStyle = '#404040';
     ctx.lineWidth = 2;
     ctx.strokeRect(20, 20, width - 40, height - 40);
 
     // Title
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 28px sans-serif';
-    ctx.fillText(config.title, 50, 60);
+    ctx.font = 'bold 30px sans-serif';
+    ctx.fillText(config.title, 50, 65);
 
     // Subtitle
     ctx.fillStyle = '#999999';
-    ctx.font = '18px sans-serif';
-    ctx.fillText(config.subtitle, 50, 90);
+    ctx.font = '20px sans-serif';
+    ctx.fillText(config.subtitle, 50, 95);
 
     // Stats boxes
-    const statsY = 120;
+    const statsY = 130;
     const boxWidth = 220;
     const boxHeight = 80;
     const gap = 20;
@@ -704,35 +772,71 @@ class CanvasGenerator {
     });
 
     // Chart area
-    const chartX = 50;
-    const chartY = 240;
-    const chartWidth = width - 100;
-    const chartHeight = 200;
+    const chartX = 60;
+    const chartY = 250;
+    const chartWidth = width - 120;
+    const chartHeight = 240;
 
-    // Draw chart background
-    ctx.fillStyle = '#0f0f0f';
+    // Draw chart background with subtle gradient
+    const chartBg = ctx.createLinearGradient(chartX, chartY, chartX, chartY + chartHeight);
+    chartBg.addColorStop(0, '#0f0f0f');
+    chartBg.addColorStop(1, '#0a0a0a');
+    ctx.fillStyle = chartBg;
     ctx.fillRect(chartX, chartY, chartWidth, chartHeight);
     ctx.strokeStyle = '#303030';
     ctx.strokeRect(chartX, chartY, chartWidth, chartHeight);
 
-    // Draw grid lines
+    // Draw grid lines with labels
     ctx.strokeStyle = '#252525';
     ctx.lineWidth = 1;
-    for (let i = 0; i <= 4; i++) {
-      const y = chartY + (chartHeight / 4) * i;
+    ctx.fillStyle = '#666666';
+    ctx.font = '12px sans-serif';
+    
+    for (let i = 0; i <= 5; i++) {
+      const y = chartY + (chartHeight / 5) * i;
       ctx.beginPath();
       ctx.moveTo(chartX, y);
       ctx.lineTo(chartX + chartWidth, y);
       ctx.stroke();
     }
 
-    // Draw each line
+    // Draw each line with gradient fill and smooth curves
     config.lines.forEach(lineConfig => {
       const maxValue = Math.max(...config.chartData.map(d => d[lineConfig.dataKey] || 0), 1);
       const pointSpacing = chartWidth / (config.chartData.length - 1 || 1);
 
+      // Draw gradient fill under line
+      const gradient = ctx.createLinearGradient(0, chartY, 0, chartY + chartHeight);
+      gradient.addColorStop(0, lineConfig.color + '40'); // 25% opacity
+      gradient.addColorStop(1, lineConfig.color + '00'); // 0% opacity
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      
+      config.chartData.forEach((item, index) => {
+        const value = item[lineConfig.dataKey] || 0;
+        const x = chartX + (index * pointSpacing);
+        const y = chartY + chartHeight - ((value / maxValue) * (chartHeight - 20)) - 10;
+
+        if (index === 0) {
+          ctx.moveTo(x, chartY + chartHeight);
+          ctx.lineTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      
+      ctx.lineTo(chartX + (config.chartData.length - 1) * pointSpacing, chartY + chartHeight);
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw the line with glow effect
+      ctx.shadowColor = lineConfig.color;
+      ctx.shadowBlur = 10;
       ctx.strokeStyle = lineConfig.color;
       ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
       ctx.beginPath();
 
       config.chartData.forEach((item, index) => {
@@ -748,21 +852,34 @@ class CanvasGenerator {
       });
 
       ctx.stroke();
+      ctx.shadowBlur = 0; // Reset shadow
 
-      // Draw points
+      // Draw points with glow
       ctx.fillStyle = lineConfig.color;
+      ctx.shadowColor = lineConfig.color;
+      ctx.shadowBlur = 8;
+      
       config.chartData.forEach((item, index) => {
         const value = item[lineConfig.dataKey] || 0;
         const x = chartX + (index * pointSpacing);
         const y = chartY + chartHeight - ((value / maxValue) * (chartHeight - 20)) - 10;
         
         ctx.beginPath();
-        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Inner white dot
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = lineConfig.color;
       });
+      
+      ctx.shadowBlur = 0; // Reset shadow
     });
 
-    // Draw legend
+    // Draw legend with better styling
     let legendX = chartX;
     config.lines.forEach((lineConfig, index) => {
       ctx.fillStyle = lineConfig.color;

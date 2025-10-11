@@ -98,6 +98,7 @@ async function handleDaily(message, statsManager) {
     // Get hourly data for the graph
     const hourlyData = await statsManager.getHourlyActivity(guildId, 24);
     const activeMembers = await statsManager.getActiveMembersCount(guildId, 1);
+    const peakHour = hourlyData.reduce((max, h) => h.messages > max.messages ? h : max, hourlyData[0]).hour;
 
     // Prepare data for stats image
     const statsImageData = {
@@ -108,7 +109,8 @@ async function handleDaily(message, statsManager) {
       peakOnline: todayStats.maxOnline,
       messages: todayStats.messages,
       voiceHours: voiceHours,
-      activeMembers: activeMembers
+      activeMembers: activeMembers,
+      peakHour: peakHour
     };
 
     // Generate the daily stats image
@@ -219,6 +221,8 @@ async function handleWeekly(message, statsManager) {
   
   const avgMessages = Math.round(totalMessages / 7);
   const avgVoiceHours = (totalVoiceMinutes / 60 / 7).toFixed(1);
+  const peakOnline = Math.max(...weeklyData.map(d => d.maxOnline));
+  const avgOnline = weeklyData.reduce((sum, d) => sum + d.maxOnline, 0) / 7;
 
   try {
     // Prepare data for stats image
@@ -230,7 +234,8 @@ async function handleWeekly(message, statsManager) {
       avgMessages: avgMessages,
       totalVoiceHours: (totalVoiceMinutes / 60).toFixed(1),
       avgVoiceHours: avgVoiceHours,
-      peakOnline: Math.max(...weeklyData.map(d => d.maxOnline)),
+      peakOnline: peakOnline,
+      avgOnline: avgOnline,
       peakMessages: Math.max(...weeklyData.map(d => d.messages))
     };
 

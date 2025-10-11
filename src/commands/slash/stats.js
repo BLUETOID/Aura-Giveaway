@@ -136,17 +136,23 @@ async function handleDaily(interaction, statsManager) {
   const avgMessages = Math.round(todayStats.messages / 24);
 
   try {
+    // Get hourly data and active members
+    const hourlyData = await statsManager.getHourlyActivity(guildId, 24);
+    const activeMembers = await statsManager.getActiveMembersCount(guildId, 1);
+    const peakHour = hourlyData.reduce((max, h) => h.messages > max.messages ? h : max, hourlyData[0]).hour;
+
     // Generate stats summary image
     const statsImageData = {
       date: todayStats.date,
       joins: todayStats.joins,
       leaves: todayStats.leaves,
       netGrowth: netGrowth,
-      maxOnline: todayStats.maxOnline,
-      totalMessages: todayStats.messages,
+      peakOnline: todayStats.maxOnline,
+      messages: todayStats.messages,
       avgMessages: avgMessages,
       voiceHours: voiceHours,
-      voiceMinutes: todayStats.voiceMinutes
+      activeMembers: activeMembers,
+      peakHour: peakHour
     };
 
     const statsImage = await canvasGenerator.generateDailyStatsImage(statsImageData);
@@ -255,6 +261,8 @@ async function handleWeekly(interaction, statsManager) {
   const avgMessages = Math.round(totalMessages / 7);
   const avgVoiceHours = (totalVoiceMinutes / 60 / 7).toFixed(1);
   const peakMessages = Math.max(...weeklyData.map(d => d.messages));
+  const peakOnline = Math.max(...weeklyData.map(d => d.maxOnline));
+  const avgOnline = weeklyData.reduce((sum, d) => sum + d.maxOnline, 0) / 7;
 
   try {
     // Generate stats summary image
@@ -265,8 +273,10 @@ async function handleWeekly(interaction, statsManager) {
       totalMessages: totalMessages,
       avgMessages: avgMessages,
       peakMessages: peakMessages,
-      totalVoice: (totalVoiceMinutes / 60).toFixed(1),
-      avgVoice: avgVoiceHours
+      totalVoiceHours: (totalVoiceMinutes / 60).toFixed(1),
+      avgVoiceHours: avgVoiceHours,
+      peakOnline: peakOnline,
+      avgOnline: avgOnline
     };
 
     const statsImage = await canvasGenerator.generateWeeklyStatsImage(statsImageData);
@@ -375,6 +385,7 @@ async function handleMonthly(interaction, statsManager) {
   const avgMessages = Math.round(totalMessages / 30);
   const avgVoiceHours = (totalVoiceMinutes / 60 / 30).toFixed(1);
   const peakMessages = Math.max(...monthlyData.map(d => d.messages));
+  const peakOnline = Math.max(...monthlyData.map(d => d.maxOnline));
 
   try {
     // Generate stats summary image
@@ -385,8 +396,9 @@ async function handleMonthly(interaction, statsManager) {
       totalMessages: totalMessages,
       avgMessages: avgMessages,
       peakMessages: peakMessages,
-      totalVoice: (totalVoiceMinutes / 60).toFixed(1),
-      avgVoice: avgVoiceHours
+      totalVoiceHours: (totalVoiceMinutes / 60).toFixed(1),
+      avgVoiceHours: avgVoiceHours,
+      peakOnline: peakOnline
     };
 
     const statsImage = await canvasGenerator.generateMonthlyStatsImage(statsImageData);
