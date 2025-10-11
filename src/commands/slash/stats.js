@@ -210,7 +210,7 @@ async function handleDaily(interaction, statsManager) {
     .addComponents(
       new ButtonBuilder()
         .setCustomId(`stats_chart_daily_${interaction.user.id}`)
-        .setLabel('📊 View Chart')
+        .setLabel('📊')
         .setStyle(ButtonStyle.Primary)
     );
 
@@ -251,7 +251,7 @@ async function handleDaily(interaction, statsManager) {
       .addComponents(
         new ButtonBuilder()
           .setCustomId('stats_chart_daily_disabled')
-          .setLabel('📊 View Chart')
+          .setLabel('📊')
           .setStyle(ButtonStyle.Primary)
           .setDisabled(true)
       );
@@ -281,7 +281,7 @@ async function handleWeekly(interaction, statsManager) {
   
   const embed = new EmbedBuilder()
     .setColor('#FFD700')
-    .setTitle(`📊 Weekly Statistics`)
+    .setTitle(`📊`)
     .setDescription(`Past 7 days overview for ${guild.name}`)
     .addFields(
       {
@@ -383,7 +383,7 @@ async function handleWeekly(interaction, statsManager) {
       .addComponents(
         new ButtonBuilder()
           .setCustomId(`stats_chart_weekly_disabled`)
-          .setLabel('📊 View Chart')
+          .setLabel('📊')
           .setStyle(ButtonStyle.Primary)
           .setDisabled(true)
       );
@@ -413,7 +413,7 @@ async function handleMonthly(interaction, statsManager) {
   
   const embed = new EmbedBuilder()
     .setColor('#9B59B6')
-    .setTitle(`📊 Monthly Statistics`)
+    .setTitle(`📊`)
     .setDescription(`Past 30 days overview for ${guild.name}`)
     .addFields(
       {

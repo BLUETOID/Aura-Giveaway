@@ -35,7 +35,7 @@ class ImageGenerator {
         await this.init();
         
         const page = await this.browser.newPage();
-        await page.setViewport({ width: 1000, height: 350 });
+        await page.setViewport({ width: 1100, height: 400 });
         
         const html = this.getProfileTemplate(userData);
         await page.setContent(html, { waitUntil: 'networkidle0' });
@@ -73,90 +73,119 @@ class ImageGenerator {
         <html>
         <head>
             <style>
-                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
                 
                 * { margin: 0; padding: 0; box-sizing: border-box; }
                 
                 body {
-                    width: 1000px;
-                    height: 350px;
+                    width: 1100px;
+                    height: 400px;
                     background: linear-gradient(135deg, ${this.getGradient(userData.activityLevel)});
-                    font-family: 'Poppins', sans-serif;
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
                     overflow: hidden;
-                }
-                
-                .card {
-                    width: 100%;
-                    height: 100%;
-                    padding: 30px;
-                    display: flex;
-                    gap: 30px;
                     position: relative;
                 }
                 
-                .background-pattern {
+                /* Animated background effects */
+                .bg-overlay {
                     position: absolute;
                     top: 0;
                     left: 0;
                     width: 100%;
                     height: 100%;
-                    opacity: 0.05;
-                    background-image: 
-                        radial-gradient(circle at 20% 50%, white 2px, transparent 2px),
-                        radial-gradient(circle at 80% 80%, white 2px, transparent 2px);
-                    background-size: 40px 40px;
+                    background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.1) 0%, transparent 50%),
+                                radial-gradient(circle at 70% 80%, rgba(255,255,255,0.08) 0%, transparent 50%);
+                    z-index: 0;
                 }
                 
-                .avatar-section {
+                .bg-pattern {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    opacity: 0.03;
+                    background-image: 
+                        repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px);
+                    z-index: 0;
+                }
+                
+                .card {
+                    width: 100%;
+                    height: 100%;
+                    padding: 40px;
+                    display: flex;
+                    gap: 35px;
                     position: relative;
                     z-index: 1;
                 }
                 
-                .avatar-ring {
-                    width: 180px;
-                    height: 180px;
-                    border-radius: 50%;
-                    background: linear-gradient(45deg, #f093fb, #f5576c, #4facfe, #00f2fe);
-                    background-size: 300% 300%;
-                    padding: 4px;
-                    animation: gradient 3s ease infinite;
+                /* Avatar section with enhanced effects */
+                .avatar-section {
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 12px;
                 }
                 
-                @keyframes gradient {
-                    0% { background-position: 0% 50%; }
-                    50% { background-position: 100% 50%; }
-                    100% { background-position: 0% 50%; }
+                .avatar-container {
+                    position: relative;
+                }
+                
+                .avatar-glow {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 220px;
+                    height: 220px;
+                    border-radius: 50%;
+                    background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, transparent 70%);
+                    filter: blur(20px);
+                    z-index: 0;
+                }
+                
+                .avatar-ring {
+                    width: 200px;
+                    height: 200px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #FFD93D 0%, #FF6B9D 50%, #C724B1 100%);
+                    padding: 5px;
+                    position: relative;
+                    z-index: 1;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
                 }
                 
                 .avatar {
-                    width: 172px;
-                    height: 172px;
+                    width: 190px;
+                    height: 190px;
                     border-radius: 50%;
-                    border: 3px solid rgba(0,0,0,0.5);
-                    background: #333;
+                    border: 4px solid rgba(0,0,0,0.2);
+                    background: #1a1a1a;
+                    object-fit: cover;
                 }
                 
                 .level-badge {
-                    position: absolute;
-                    bottom: -5px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     color: white;
-                    padding: 8px 16px;
-                    border-radius: 20px;
-                    font-weight: 700;
-                    font-size: 18px;
-                    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+                    padding: 10px 24px;
+                    border-radius: 25px;
+                    font-weight: 800;
+                    font-size: 20px;
+                    text-transform: uppercase;
+                    letter-spacing: 1.5px;
+                    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+                    border: 2px solid rgba(255,255,255,0.3);
                 }
                 
+                /* Stats section */
                 .stats-section {
                     flex: 1;
                     display: flex;
                     flex-direction: column;
-                    justify-content: space-between;
+                    gap: 20px;
                     position: relative;
-                    z-index: 1;
                 }
                 
                 .header {
@@ -164,41 +193,91 @@ class ImageGenerator {
                 }
                 
                 .username {
-                    font-size: 42px;
-                    font-weight: 700;
-                    text-shadow: 2px 2px 10px rgba(0,0,0,0.5);
-                    margin-bottom: 5px;
+                    font-size: 48px;
+                    font-weight: 800;
+                    text-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                    margin-bottom: 8px;
+                    letter-spacing: -0.5px;
+                    background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.85) 100%);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
                 }
                 
                 .activity-level {
-                    font-size: 24px;
-                    opacity: 0.95;
-                    display: flex;
+                    font-size: 22px;
+                    display: inline-flex;
                     align-items: center;
-                    gap: 8px;
-                    text-shadow: 1px 1px 5px rgba(0,0,0,0.5);
+                    gap: 10px;
+                    background: rgba(255,255,255,0.2);
+                    backdrop-filter: blur(10px);
+                    padding: 8px 18px;
+                    border-radius: 20px;
+                    border: 1px solid rgba(255,255,255,0.3);
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                    font-weight: 600;
                 }
                 
+                /* XP Section with improved design */
                 .xp-section {
-                    margin: 15px 0;
+                    background: rgba(0,0,0,0.25);
+                    backdrop-filter: blur(15px);
+                    padding: 20px;
+                    border-radius: 20px;
+                    border: 1px solid rgba(255,255,255,0.15);
+                    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+                }
+                
+                .xp-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 12px;
+                }
+                
+                .xp-label {
+                    color: rgba(255,255,255,0.9);
+                    font-size: 14px;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+                
+                .xp-percentage {
+                    color: white;
+                    font-size: 18px;
+                    font-weight: 700;
                 }
                 
                 .xp-bar-container {
                     width: 100%;
-                    height: 30px;
+                    height: 36px;
                     background: rgba(0,0,0,0.4);
-                    border-radius: 20px;
+                    border-radius: 18px;
                     overflow: hidden;
                     position: relative;
-                    box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+                    box-shadow: inset 0 4px 8px rgba(0,0,0,0.4);
                 }
                 
                 .xp-bar-fill {
                     height: 100%;
-                    background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+                    background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+                    background-size: 200% 100%;
                     width: ${userData.progressPercent}%;
-                    border-radius: 20px;
+                    border-radius: 18px;
                     position: relative;
+                    box-shadow: 0 0 20px rgba(118, 75, 162, 0.6);
+                }
+                
+                .xp-bar-fill::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    height: 50%;
+                    background: linear-gradient(180deg, rgba(255,255,255,0.4), transparent);
+                    border-radius: 18px 18px 0 0;
                 }
                 
                 .xp-bar-fill::after {
@@ -206,72 +285,103 @@ class ImageGenerator {
                     position: absolute;
                     top: 0;
                     left: 0;
-                    right: 0;
-                    height: 50%;
-                    background: linear-gradient(180deg, rgba(255,255,255,0.3), transparent);
-                    border-radius: 20px 20px 0 0;
+                    width: 100%;
+                    height: 100%;
+                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+                    animation: shimmer 2s infinite;
+                }
+                
+                @keyframes shimmer {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(100%); }
                 }
                 
                 .xp-text {
                     color: white;
                     text-align: center;
-                    margin-top: 6px;
+                    margin-top: 10px;
                     font-size: 16px;
-                    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+                    font-weight: 600;
+                    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
                 }
                 
+                /* Rank cards with 3D effect */
                 .rank-section {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
-                    gap: 15px;
+                    gap: 18px;
                 }
                 
                 .rank-box {
-                    background: rgba(255,255,255,0.15);
-                    backdrop-filter: blur(10px);
-                    padding: 20px;
-                    border-radius: 15px;
-                    border: 1px solid rgba(255,255,255,0.2);
-                    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                    background: rgba(255,255,255,0.18);
+                    backdrop-filter: blur(15px);
+                    padding: 22px;
+                    border-radius: 18px;
+                    border: 1px solid rgba(255,255,255,0.25);
+                    box-shadow: 0 8px 25px rgba(0,0,0,0.25),
+                                inset 0 1px 0 rgba(255,255,255,0.2);
+                    position: relative;
+                    overflow: hidden;
+                }
+                
+                .rank-box::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+                    pointer-events: none;
                 }
                 
                 .rank-icon {
-                    font-size: 32px;
-                    margin-bottom: 5px;
+                    font-size: 38px;
+                    margin-bottom: 8px;
+                    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
                 }
                 
                 .rank-value {
-                    font-size: 36px;
-                    font-weight: 700;
+                    font-size: 42px;
+                    font-weight: 800;
                     color: white;
-                    text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+                    text-shadow: 0 3px 8px rgba(0,0,0,0.4);
+                    letter-spacing: -1px;
                 }
                 
                 .rank-label {
-                    color: rgba(255,255,255,0.9);
-                    font-size: 14px;
-                    margin-top: 3px;
+                    color: rgba(255,255,255,0.95);
+                    font-size: 13px;
+                    margin-top: 4px;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
+                    letter-spacing: 1.2px;
+                    font-weight: 600;
                 }
                 
+                /* Footer branding */
                 .footer {
                     position: absolute;
-                    bottom: 10px;
-                    right: 20px;
-                    color: rgba(255,255,255,0.5);
-                    font-size: 11px;
+                    bottom: 15px;
+                    right: 25px;
+                    color: rgba(255,255,255,0.6);
+                    font-size: 12px;
+                    font-weight: 500;
+                    letter-spacing: 0.5px;
                 }
             </style>
         </head>
         <body>
-            <div class="background-pattern"></div>
+            <div class="bg-overlay"></div>
+            <div class="bg-pattern"></div>
             <div class="card">
                 <div class="avatar-section">
-                    <div class="avatar-ring">
-                        <img src="${userData.avatarUrl}" class="avatar" crossorigin="anonymous">
+                    <div class="avatar-container">
+                        <div class="avatar-glow"></div>
+                        <div class="avatar-ring">
+                            <img src="${userData.avatarUrl}" class="avatar" crossorigin="anonymous">
+                        </div>
                     </div>
-                    <div class="level-badge">LEVEL ${userData.level}</div>
+                    <div class="level-badge">Level ${userData.level}</div>
                 </div>
                 
                 <div class="stats-section">
@@ -284,6 +394,10 @@ class ImageGenerator {
                     </div>
                     
                     <div class="xp-section">
+                        <div class="xp-header">
+                            <div class="xp-label">Experience Progress</div>
+                            <div class="xp-percentage">${userData.progressPercent}%</div>
+                        </div>
                         <div class="xp-bar-container">
                             <div class="xp-bar-fill"></div>
                         </div>
@@ -528,12 +642,12 @@ class ImageGenerator {
 
     getGradient(activityLevel) {
         const gradients = {
-            'Super Active': '#ff4444 0%, #cc0000 100%',
-            'Very Active': '#ff8800 0%, #ff4400 100%',
-            'Active': '#ffaa00 0%, #ff6600 100%',
-            'Regular': '#00ff88 0%, #00aa44 100%',
-            'Occasional': '#00aaff 0%, #0055aa 100%',
-            'Newcomer': '#aaaaaa 0%, #666666 100%'
+            'Super Active': '#FF3CAC 0%, #784BA0 50%, #2B86C5 100%',      // Pink to purple to blue
+            'Very Active': '#FA8BFF 0%, #2BD2FF 50%, #2BFF88 100%',       // Pink to cyan to green
+            'Active': '#FDBB2D 0%, #22C1C3 100%',                         // Orange to teal
+            'Regular': '#4FACFE 0%, #00F2FE 100%',                        // Light blue gradient
+            'Occasional': '#667eea 0%, #764ba2 100%',                     // Purple gradient
+            'Newcomer': '#A8EDEA 0%, #FED6E3 100%'                        // Soft mint to pink
         };
         return gradients[activityLevel] || '#667eea 0%, #764ba2 100%';
     }
