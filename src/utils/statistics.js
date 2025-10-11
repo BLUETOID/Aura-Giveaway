@@ -373,6 +373,26 @@ class StatisticsManager {
     }
   }
 
+  async getUserVoiceRank(guildId, userId) {
+    try {
+      const userStats = await UserStats.findOne({ guildId, userId });
+      if (!userStats) return null;
+
+      const usersWithMoreVoiceTime = await UserStats.countDocuments({
+        guildId,
+        voiceTime: { $gt: userStats.voiceTime }
+      });
+
+      return {
+        rank: usersWithMoreVoiceTime + 1,
+        total: userStats.voiceTime
+      };
+    } catch (error) {
+      console.error('❌ Error getting user voice rank:', error.message);
+      return null;
+    }
+  }
+
   async updateUserGiveawayStats(guildId, userId, type = 'entered') {
     try {
       const updateField = type === 'entered' ? 'giveawaysEntered' : 'giveawaysWon';
@@ -384,6 +404,64 @@ class StatisticsManager {
       );
     } catch (error) {
       console.error('❌ Error updating user giveaway stats:', error.message);
+    }
+  }
+
+  async getHourlyActivity(guildId, hours = 24) {
+    try {
+      const stats = await this.getGuildStats(guildId);
+      if (!stats || !stats.dailyStats || stats.dailyStats.length === 0) {
+        return Array.from({ length: hours }, (_, i) => ({
+          hour: `${i}:00`,
+          messages: 0,
+          voiceMinutes: 0
+        }));
+      }
+
+      // Get the most recent day's hourly data
+      const recentDay = stats.dailyStats[stats.dailyStats.length - 1];
+      
+      if (recentDay && recentDay.hourlyActivity) {
+        const result = [];
+        for (let i = 0; i < Math.min(hours, 24); i++) {
+          result.push({
+            hour: `${i}:00`,
+            messages: recentDay.hourlyActivity.messages[i] || 0,
+            voiceMinutes: recentDay.hourlyActivity.voice[i] || 0
+          });
+        }
+        return result;
+      }
+
+      return Array.from({ length: hours }, (_, i) => ({
+        hour: `${i}:00`,
+        messages: 0,
+        voiceMinutes: 0
+      }));
+    } catch (error) {
+      console.error('❌ Error getting hourly activity:', error.message);
+      return Array.from({ length: hours }, (_, i) => ({
+        hour: `${i}:00`,
+        messages: 0,
+        voiceMinutes: 0
+      }));
+    }
+  }
+
+  async getActiveMembersCount(guildId, days = 7) {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+
+      const count = await UserStats.countDocuments({
+        guildId,
+        lastMessageDate: { $gte: cutoffDate }
+      });
+
+      return count;
+    } catch (error) {
+      console.error('❌ Error getting active members count:', error.message);
+      return 0;
     }
   }
 

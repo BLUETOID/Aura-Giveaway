@@ -1,4 +1,5 @@
-const { SlashCommandBuilder, AttachmentBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
+const imageGenerator = require('../../utils/imageGenerator');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -29,6 +30,7 @@ module.exports = {
       }
 
       const leaderboardRank = await statsManager.getUserLeaderboardRank(interaction.guild.id, targetUser.id);
+      const voiceRank = await statsManager.getUserVoiceRank(interaction.guild.id, targetUser.id);
       const activityLevel = calculateActivityLevel(userStats.messages.total);
       
       // Calculate level and XP (gamification)
@@ -39,62 +41,23 @@ module.exports = {
       const xpNeeded = nextLevelXP - currentLevelXP;
       const progressPercent = Math.round((xpProgress / xpNeeded) * 100);
       
-      // Create progress bar
-      const barLength = 20;
-      const filledBars = Math.round((progressPercent / 100) * barLength);
-      const emptyBars = barLength - filledBars;
-      const progressBar = '█'.repeat(filledBars) + '░'.repeat(emptyBars);
-      
-      const memberDays = Math.max(1, Math.floor((Date.now() - member.joinedTimestamp) / (1000 * 60 * 60 * 24)));
-      const percentile = leaderboardRank ? getPercentile(leaderboardRank.rank) : '0';
-      
-      const embed = new EmbedBuilder()
-        .setAuthor({ 
-          name: `${targetUser.username}'s Profile`, 
-          iconURL: targetUser.displayAvatarURL({ dynamic: true }) 
-        })
-        .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
-        .setColor(getActivityColorHex(activityLevel.name))
-        .addFields(
-          {
-            name: `${activityLevel.emoji} Level ${level} - ${activityLevel.name}`,
-            value: `\`\`\`${progressBar}\`\`\`\n**${Math.round(xpProgress).toLocaleString()} / ${Math.round(xpNeeded).toLocaleString()} XP** (${progressPercent}%)`,
-            inline: false
-          },
-          {
-            name: '📊 Message Stats',
-            value: 
-              `**Total:** ${userStats.messages.total.toLocaleString()}\n` +
-              `**Monthly:** ${userStats.messages.monthly.toLocaleString()}\n` +
-              `**Weekly:** ${userStats.messages.weekly.toLocaleString()}\n` +
-              `**Daily:** ${userStats.messages.daily.toLocaleString()}`,
-            inline: true
-          },
-          {
-            name: '🏆 Rankings',
-            value: 
-              `**Rank:** #${leaderboardRank?.rank || 'N/A'}\n` +
-              `**Percentile:** Top ${percentile}%\n` +
-              `**Voice:** ${Math.round(userStats.voiceTime / 60)}h\n` +
-              `**Giveaways:** ${userStats.giveawaysWon || 0} won`,
-            inline: true
-          },
-          {
-            name: '📅 Member Info',
-            value: 
-              `**Joined:** <t:${Math.floor(member.joinedTimestamp / 1000)}:R>\n` +
-              `**Days:** ${memberDays}\n` +
-              `**Last Active:** <t:${Math.floor(userStats.lastMessageDate.getTime() / 1000)}:R>`,
-            inline: true
-          }
-        )
-        .setFooter({ 
-          text: `User ID: ${targetUser.id} • Keep chatting to level up!`,
-          iconURL: interaction.guild.iconURL()
-        })
-        .setTimestamp();
+      // Generate profile card image
+      const imageBuffer = await imageGenerator.generateProfileCard({
+        username: targetUser.username,
+        avatarUrl: targetUser.displayAvatarURL({ extension: 'png', size: 256 }),
+        level: level,
+        activityLevel: activityLevel.name,
+        activityEmoji: activityLevel.emoji,
+        xpProgress: Math.round(xpProgress),
+        xpNeeded: Math.round(xpNeeded),
+        progressPercent: progressPercent,
+        messageRank: leaderboardRank?.rank || 'N/A',
+        voiceRank: voiceRank?.rank || 'N/A'
+      });
 
-      await interaction.editReply({ embeds: [embed] });
+      const attachment = new AttachmentBuilder(imageBuffer, { name: 'profile.png' });
+      
+      await interaction.editReply({ files: [attachment] });
       
     } catch (error) {
       console.error('Error in profile command:', error);
@@ -114,17 +77,12 @@ function calculateActivityLevel(totalMessages) {
 
 function getActivityColorHex(levelName) {
   const colors = {
-    'Super Active': '#ff4444',
-    'Very Active': '#ff8800',
-    'Active': '#ffaa00',
-    'Regular': '#00ff88',
-    'Occasional': '#00aaff',
-    'Newcomer': '#aaaaaa'
+    'Super Active': 0xff4444,
+    'Very Active': 0xff8800,
+    'Active': 0xffaa00,
+    'Regular': 0x00ff88,
+    'Occasional': 0x00aaff,
+    'Newcomer': 0xaaaaaa
   };
-  return colors[levelName] || '#ffffff';
-}
-
-function getPercentile(rank) {
-  if (rank <= 10) return ((10 - rank + 1) * 10).toFixed(0);
-  return Math.max(1, 100 - rank).toFixed(0);
+  return colors[levelName] || 0xffffff;
 }

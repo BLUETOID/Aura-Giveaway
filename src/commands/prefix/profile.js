@@ -1,4 +1,5 @@
-const { EmbedBuilder } = require('discord.js');
+const { AttachmentBuilder } = require('discord.js');
+const imageGenerator = require('../../utils/imageGenerator');
 
 module.exports = {
   name: 'profile',
@@ -23,7 +24,7 @@ module.exports = {
       }
     }
 
-    const loadingMsg = await message.reply('🎮 Loading profile...');
+    const loadingMsg = await message.reply('🎮 Generating profile card...');
 
     try {
       const member = await message.guild.members.fetch(targetUser.id).catch(() => null);
@@ -39,6 +40,7 @@ module.exports = {
       }
 
       const leaderboardRank = await statsManager.getUserLeaderboardRank(message.guild.id, targetUser.id);
+      const voiceRank = await statsManager.getUserVoiceRank(message.guild.id, targetUser.id);
       const activityLevel = calculateActivityLevel(userStats.messages.total);
       
       // Calculate level and XP (gamification)
@@ -47,62 +49,25 @@ module.exports = {
       const nextLevelXP = Math.pow(level + 1, 1.5) * 100;
       const xpProgress = userStats.messages.total - currentLevelXP;
       const xpNeeded = nextLevelXP - currentLevelXP;
-      const progressPercent = (xpProgress / xpNeeded) * 100;
+      const progressPercent = Math.round((xpProgress / xpNeeded) * 100);
       
-      // Create progress bar
-      const barLength = 20;
-      const filledBars = Math.round((progressPercent / 100) * barLength);
-      const emptyBars = barLength - filledBars;
-      const progressBar = '█'.repeat(filledBars) + '░'.repeat(emptyBars);
+      // Generate profile card image
+      const imageBuffer = await imageGenerator.generateProfileCard({
+        username: targetUser.username,
+        avatarUrl: targetUser.displayAvatarURL({ extension: 'png', size: 256 }),
+        level: level,
+        activityLevel: activityLevel.name,
+        activityEmoji: activityLevel.emoji,
+        xpProgress: Math.round(xpProgress),
+        xpNeeded: Math.round(xpNeeded),
+        progressPercent: progressPercent,
+        messageRank: leaderboardRank?.rank || 'N/A',
+        voiceRank: voiceRank?.rank || 'N/A'
+      });
 
-      const embed = new EmbedBuilder()
-        .setColor(getActivityColorHex(activityLevel.name))
-        .setAuthor({ 
-          name: `${targetUser.username}'s Profile`, 
-          iconURL: targetUser.displayAvatarURL() 
-        })
-        .setThumbnail(targetUser.displayAvatarURL({ size: 256 }))
-        .addFields(
-          { 
-            name: '🏅 Level & Activity', 
-            value: `**Level:** ${level}\n**Status:** ${activityLevel.emoji} ${activityLevel.name}`, 
-            inline: true 
-          },
-          { 
-            name: '🏆 Server Rank', 
-            value: `**Rank:** #${leaderboardRank?.rank || 'N/A'}\n**Percentile:** Top ${getPercentile(leaderboardRank?.rank || 0)}%`, 
-            inline: true 
-          },
-          { 
-            name: '📊 Messages', 
-            value: `**Total:** ${userStats.messages.total.toLocaleString()}\n**Monthly:** ${userStats.messages.monthly.toLocaleString()}\n**Weekly:** ${userStats.messages.weekly.toLocaleString()}`, 
-            inline: true 
-          },
-          { 
-            name: '🎁 Giveaways', 
-            value: `**Entered:** ${userStats.giveawaysEntered || 0}\n**Won:** ${userStats.giveawaysWon || 0}`, 
-            inline: true 
-          },
-          { 
-            name: '🎤 Voice Time', 
-            value: `${Math.round(userStats.voiceTime / 60)} hours`, 
-            inline: true 
-          },
-          { 
-            name: '\u200B', 
-            value: '\u200B', 
-            inline: true 
-          },
-          { 
-            name: '⭐ XP Progress', 
-            value: `\`\`\`${progressBar}\`\`\`${Math.round(xpProgress).toLocaleString()} / ${Math.round(xpNeeded).toLocaleString()} XP (${progressPercent.toFixed(1)}%)`, 
-            inline: false 
-          }
-        )
-        .setFooter({ text: `Member since ${new Date(member.joinedTimestamp).toLocaleDateString()} • ID: ${targetUser.id}` })
-        .setTimestamp();
-
-      await loadingMsg.edit({ content: null, embeds: [embed] });
+      const attachment = new AttachmentBuilder(imageBuffer, { name: 'profile.png' });
+      
+      await loadingMsg.edit({ content: null, files: [attachment] });
       
     } catch (error) {
       console.error('Error in profile command:', error);
@@ -130,9 +95,4 @@ function getActivityColorHex(levelName) {
     'Newcomer': 0xaaaaaa
   };
   return colors[levelName] || 0xffffff;
-}
-
-function getPercentile(rank) {
-  if (rank <= 10) return ((10 - rank + 1) * 10).toFixed(0);
-  return Math.max(1, 100 - rank).toFixed(0);
 }
